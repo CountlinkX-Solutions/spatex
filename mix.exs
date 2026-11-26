@@ -108,7 +108,7 @@ defmodule Spatex.MixProject do
       {:rustler, "~> 0.38", optional: true, runtime: false},
       # Downloads the precompiled NIF of a release, verified against the packaged checksum file.
       {:rustler_precompiled, "~> 0.8"},
-      {:nx, "~> 0.10", optional: true},
+      {:nx, "~> 1.0", optional: true},
       {:explorer, "~> 0.13", optional: true},
       {:stream_data, "~> 1.4", only: [:dev, :test]},
       # The library does not use Jason; the oracle-test helper and the benchmarks decode JSON with
