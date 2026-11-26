@@ -1,0 +1,149 @@
+# Spatex next to PySAL
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`) and reads its test fixtures.
+
+```elixir
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:jason, "~> 1.4"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## What this notebook does
+
+Spatex is checked against PySAL (esda 2.10.0, libpysal 4.15.1, mapclassify 2.11.0, spreg 1.9.1).
+The reference values were produced by PySAL itself and are committed in
+`test/reference/fixtures/`, so this notebook needs neither Python nor a network: it runs Spatex on
+Columbus and prints both columns side by side.
+
+Statistics that do not depend on a random stream (Moran's I, its analytic z and p, G_Local, the
+Fisher-Jenks bins, the OLS estimates and diagnostics) agree to about 1e-9. Permutation p-values use a
+different random generator (ChaCha8 in Spatex, numpy's in PySAL), so they agree statistically, not
+draw by draw. The test suite enforces the same tolerances.
+
+```elixir
+fixtures = Path.join([__DIR__, "..", "test", "reference", "fixtures"])
+load = fn name -> fixtures |> Path.join(name) |> File.read!() |> Jason.decode!() end
+find_case = fn fixture, label -> Enum.find(fixture["cases"], &(&1["label"] == label)) end
+
+columbus = load.("datasets/columbus.json")
+wkbs = Enum.map(columbus["wkb_hex"], &Base.decode16!(&1, case: :mixed))
+queen = Spatex.Graph.build_contiguity(wkbs, rook: false)
+
+row = fn name, spatex, pysal ->
+  %{
+    quantity: name,
+    spatex: spatex,
+    pysal: pysal,
+    abs_diff: abs(spatex - pysal)
+  }
+end
+
+:ok
+```
+
+## Global Moran's I
+
+```elixir
+case_moran = find_case.(load.("esda/moran_columbus_queen.json"), "CRIME/r")
+moran = Spatex.ESDA.moran(case_moran["y"], queen, permutations: 9999, seed: 1)
+
+Kino.DataTable.new([
+  row.("I", moran.i, case_moran["analytic"]["i"]),
+  row.("E[I]", moran.ei, case_moran["analytic"]["ei"]),
+  row.("z (normality)", moran.z_norm, case_moran["analytic"]["z_norm"]),
+  row.("p (normality)", moran.p_norm, case_moran["analytic"]["p_norm"]),
+  row.("z (randomization)", moran.z_rand, case_moran["analytic"]["z_rand"]),
+  row.("p_sim (9999 permutations)", moran.p_sim, case_moran["perm"]["p_sim"])
+])
+```
+
+## Local Moran's I and G_Local
+
+```elixir
+case_lisa = find_case.(load.("esda/local_moran_columbus_queen.json"), "CRIME/r")
+lisa = Spatex.ESDA.moran_local(case_lisa["y"], queen, permutations: 9999, seed: 1)
+
+max_diff = fn a, b -> Enum.zip_with(a, b, &abs(&1 - &2)) |> Enum.max() end
+
+lisa_pysal_labels = case_lisa["labels"]
+lisa_labels = Spatex.ESDA.MoranLocal.cluster_labels(lisa, 0.05)
+
+Kino.DataTable.new([
+  %{
+    quantity: "Moran_Local: max |I_i difference| over 49 sites",
+    value: max_diff.(lisa.is, case_lisa["analytic"]["is"])
+  },
+  %{
+    quantity: "Moran_Local: quadrants identical",
+    value: lisa.q == Enum.map(case_lisa["analytic"]["q"], &trunc/1)
+  },
+  %{
+    quantity: "LISA labels, significant sites (Spatex / PySAL)",
+    value:
+      "#{Enum.count(lisa_labels, &(&1 != "Insignificant"))} / " <>
+        "#{Enum.count(lisa_pysal_labels, &(&1 != "Insignificant"))}"
+  }
+])
+```
+
+```elixir
+case_g = find_case.(load.("esda/g_local_columbus_queen.json"), "CRIME/r/star=False")
+g = Spatex.ESDA.g_local(case_g["y"], queen, permutations: 9999, seed: 1)
+
+Kino.DataTable.new([
+  %{quantity: "G_Local: max |G_i difference|", value: max_diff.(g.gs, case_g["analytic"]["gs"])},
+  %{quantity: "G_Local: max |z difference|", value: max_diff.(g.zs, case_g["analytic"]["zs"])}
+])
+```
+
+## Classification
+
+```elixir
+crime = load.("classify/columbus_crime.json")
+
+pysal_jenks =
+  Enum.find(crime["cases"], &(&1["method"] == "fisher_jenks" and &1["params"]["k"] == 5))
+
+jenks = Spatex.Classify.fisher_jenks(crime["y"], k: 5)
+
+Enum.zip([1..5, jenks.bins, pysal_jenks["bins"]])
+|> Enum.map(fn {class, spatex, pysal} -> row.("Fisher-Jenks bin #{class}", spatex, pysal) end)
+|> Kino.DataTable.new()
+```
+
+## OLS with spatial diagnostics
+
+```elixir
+ols_case = find_case.(load.("regression/ols_columbus.json"), "hoval~inc+crime/queen_r/spat")
+expected = ols_case["expected"]
+
+model =
+  Spatex.Regression.ols(ols_case["y"], ols_case["x"],
+    name_x: ols_case["name_x"],
+    graph: Spatex.Graph.transform(queen, :r),
+    spat_diag: true,
+    moran: true
+  )
+
+coefficients =
+  for {name, beta, pysal} <- Enum.zip([model.name_x, model.betas, expected["betas"]]) do
+    row.("beta #{name}", beta, pysal)
+  end
+
+pairs = fn name, {stat, p}, [pysal_stat, pysal_p] ->
+  [row.("#{name} statistic", stat, pysal_stat), row.("#{name} p-value", p, pysal_p)]
+end
+
+Kino.DataTable.new(
+  coefficients ++
+    [row.("R-squared", model.r2, expected["r2"]), row.("AIC", model.aic, expected["aic"])] ++
+    pairs.("LM lag", model.lm_lag, expected["lm_lag"]) ++
+    pairs.("LM error", model.lm_error, expected["lm_error"])
+)
+```
+
+The largest absolute difference in every table above is at floating-point noise level, apart from the
+permutation p-values, which differ by Monte Carlo error.

@@ -1,0 +1,33 @@
+{
+ "cases": [
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 2, 0, 2, 0, 1, 4, 3],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+   },
+   "cardinalities": [2, 2, 2, 1, 1],
+   "isolates": [],
+   "name": "t1_binary",
+   "params": {
+    "binary": true,
+    "threshold": 1.0
+   }
+  }
+ ],
+ "description": "Binary distance band keeps coincident pairs.",
+ "meta": {
+  "esda": "2.10.0",
+  "libpysal": "4.15.1",
+  "numpy": "2.5.4"
+ },
+ "n": 5,
+ "name": "distance_band_coincident",
+ "points": [
+  [0.0, 0.0],
+  [0.0, 0.0],
+  [1.0, 0.0],
+  [3.0, 0.0],
+  [3.0, 1.0]
+ ]
+}

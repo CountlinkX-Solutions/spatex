@@ -1,0 +1,13 @@
+# Settings every NIF cdylib needs on these targets. They are target-specific, so they never
+# affect a Linux/glibc build.
+
+# The BEAM provides the enif_* symbols at load time.
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+# musl links statically by default, which cannot produce a loadable cdylib.
+[target.x86_64-unknown-linux-musl]
+rustflags = ["-C", "target-feature=-crt-static"]

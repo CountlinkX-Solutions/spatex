@@ -1,0 +1,333 @@
+# Use case: does location still decide income? US states, 1929-2009
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`).
+
+## Setup
+
+> **Not run in CI.** GeoFrame is not on Hex yet, so CI does not fetch it.
+> Run this notebook locally with a GeoFrame checkout:
+> 
+>     SPATEX_GEOFRAME_PATH=/path/to/geoframe livebook server notebooks/us_income_case.livemd
+> 
+> or headlessly, to check that every cell works:
+> 
+>     SPATEX_GEOFRAME_PATH=/path/to/geoframe elixir scripts/run_livemd.exs notebooks/us_income_case.livemd
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "set SPATEX_GEOFRAME_PATH to a GeoFrame checkout before starting this notebook"
+
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## The question
+
+A regional development agency has to decide whether its money should keep going to the poorer
+states, and an investor wants to know whether a state's position is a lasting fact or something
+that changes. Both are asking the same questions:
+
+1. Has the gap between rich and poor states **closed**?
+2. Is what is left of the gap **regional**, or spread at random over the map?
+3. How **mobile** are states: how long does it take a poor state to become a rich one?
+4. Does a state's future depend on its **neighbors**?
+
+The data are real: per-capita personal income of the 48 contiguous states, every year from 1929
+to 2009 (Bureau of Economic Analysis, as distributed with PySAL). The analysis follows Rey and
+Montouri (1999) and Rey (2001).
+
+## 1. Load the states and their incomes
+
+GeoFrame reads the Shapefile of state boundaries; Explorer reads the income table (one row per
+state, one column per year). The two are matched on the state's FIPS code, which the Shapefile
+stores as text and the table as an integer.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+data_dir = Path.join([__DIR__, "data", "us_income"])
+
+states =
+  data_dir
+  |> Path.join("us48.shp")
+  |> GeoFrame.read_file!()
+  |> GDF.set_crs("EPSG:4269")
+  |> GDF.select(["STATE_NAME", "STATE_ABBR", "STATE_FIPS", "SUB_REGION"])
+
+states = GDF.put(states, "fips", S.cast(GDF.pull(states, "STATE_FIPS"), {:s, 64}))
+
+income = DF.from_csv!(Path.join(data_dir, "usjoin.csv"))
+years = Enum.map(1929..2009, &Integer.to_string/1)
+
+{GDF.n_rows(states), DF.n_rows(income), length(years)}
+```
+
+Incomes are in current dollars, so 1929 and 2009 cannot be compared directly. The standard fix
+is **relative income**: each state's income divided by the average of the 48 states that year.
+1.0 is the national average, 0.5 half of it. We build it as an `n x t` matrix (one row per state,
+in the Shapefile's order, one column per year), the shape every `Spatex.Dynamics` function takes.
+
+```elixir
+by_fips = income |> DF.to_rows() |> Map.new(&{&1["STATE_FIPS"], &1})
+fips = states |> GDF.pull("fips") |> S.to_list()
+
+dollars = Enum.map(fips, fn f -> Enum.map(years, &(by_fips[f][&1] * 1.0)) end)
+
+relative_by_year =
+  dollars
+  |> Enum.zip_with(& &1)
+  |> Enum.map(fn year -> Enum.map(year, &(&1 * length(year) / Enum.sum(year))) end)
+
+relative = Enum.zip_with(relative_by_year, & &1)
+year = fn y -> Enum.at(relative_by_year, String.to_integer(y) - 1929) end
+
+states =
+  states
+  |> GDF.put("rel1929", S.from_list(year.("1929")))
+  |> GDF.put("rel2009", S.from_list(year.("2009")))
+
+GeoFrame.Kino.deck(states,
+  color: {"rel1929", :viridis},
+  opacity: 0.85,
+  tooltip: ["STATE_NAME", "rel1929", "rel2009"]
+)
+```
+
+```elixir
+GeoFrame.Kino.deck(states,
+  color: {"rel2009", :viridis},
+  opacity: 0.85,
+  tooltip: ["STATE_NAME", "rel1929", "rel2009"]
+)
+```
+
+```elixir
+states
+|> GDF.data()
+|> DF.select(["STATE_NAME", "SUB_REGION", "rel1929", "rel2009"])
+|> DF.sort_by(asc: rel1929)
+```
+
+In 1929 the poorest states (South Carolina, Mississippi, Arkansas, Alabama) had less than 55% of
+the average income and New York almost twice it. By 2009 the poorest are around 80% and the
+richest under 1.5 times the average. The colors moved, but the South is still darker.
+
+## 2. Has the gap closed?
+
+The Gini coefficient of relative incomes measures the gap in one number: 0 when every state has
+the same income. We compute it for every year.
+
+```elixir
+gini_by_year =
+  DF.new(
+    year: Enum.map(years, &String.to_integer/1),
+    gini: Enum.map(relative_by_year, &Spatex.Inequality.gini/1)
+  )
+
+gini_by_year |> DF.filter(remainder(year, 10) == 0 or year == 1929 or year == 2009)
+```
+
+The gap rises during the Great Depression, then falls sharply until about 1980: poor states grew
+faster than rich ones (economists call this sigma-convergence). After 1980 the Gini stops
+falling and moves sideways. **The convergence the agency may be counting on ended a generation
+ago.**
+
+## 3. Is the gap regional?
+
+Theil's T can be split into a part **between** groups and a part **within** them.
+`Spatex.Inequality.theil_d/3` takes the whole matrix and the Census subregion of every state, and
+returns both parts for every year.
+
+```elixir
+theil = Spatex.Inequality.theil_d(relative, GDF.pull(states, "SUB_REGION"))
+
+theil_by_year =
+  DF.new(
+    year: Enum.map(years, &String.to_integer/1),
+    theil: theil.t,
+    between_regions_share: Enum.zip_with(theil.bg, theil.t, &(&1 / &2))
+  )
+
+theil_by_year |> DF.filter(remainder(year, 10) == 0 or year == 1929 or year == 2009)
+```
+
+Even in 2009, more than 40% of the inequality between states is inequality between the nine
+Census subregions. Knowing a state's region still tells you a lot about its income.
+
+Moran's I asks the same question without predefined regions: do states with similar incomes
+border each other?
+
+```elixir
+graph = Spatex.GeoFrame.graph(states, :queen)
+w = Spatex.Graph.transform(graph, :r)
+
+moran_by_decade =
+  for y <- ~w(1929 1940 1950 1960 1970 1980 1990 2000 2009) do
+    m = Spatex.ESDA.moran(year.(y), w, permutations: 999, seed: 1)
+    %{year: y, moran_i: m.i, p_sim: m.p_sim}
+  end
+
+DF.new(moran_by_decade)
+```
+
+Income is clustered in every decade, with the lowest value around 1980 and a strong pattern
+again afterwards. The spatial Gini makes it concrete: it splits the total gap into pairs of
+neighboring states and pairs of states that are not neighbors. Polarization above 1 means
+non-neighbors differ more than neighbors do.
+
+```elixir
+for y <- ~w(1929 2009) do
+  g = Spatex.Inequality.spatial_gini(year.(y), graph, permutations: 999, seed: 1)
+  %{year: y, gini: g.g, polarization: g.polarization, p_sim: g.p_sim}
+end
+```
+
+## 4. How mobile are states?
+
+Divide the states into five income classes (quintiles) every year and count how often a state
+moves from one class to another from one year to the next. `Spatex.Dynamics.markov/2` does the
+classification and the counting.
+
+```elixir
+markov = Spatex.Dynamics.markov(relative, k: 5)
+
+round3 = fn rows -> Enum.map(rows, fn row -> Enum.map(row, &Float.round(&1 * 1.0, 3)) end) end
+round3.(markov.p)
+```
+
+Row `i` is "this year in class `i`", column `j` "next year in class `j`". The diagonal is close to
+1: in a given year about 79-93% of the states stay in their class. Moves are small, one class at
+a time.
+
+The **mean first passage time** turns this into years: how long, on average, it takes a state in
+one class to reach another for the first time.
+
+```elixir
+years_to = fn row -> Enum.map(row, &Float.round(&1, 1)) end
+
+%{
+  poorest_to_each_class: markov.mfpt |> hd() |> years_to.(),
+  richest_to_each_class: markov.mfpt |> List.last() |> years_to.()
+}
+```
+
+A state in the poorest fifth needs on average about a century to reach the richest fifth for the
+first time. Kendall's tau between the 1929 and the 2009 rankings confirms the persistence: the
+two rankings still agree much more than chance would allow.
+
+```elixir
+tau = Spatex.Dynamics.kendall_tau(year.("1929"), year.("2009"))
+%{tau: tau.tau, p: tau.p}
+```
+
+## 5. Do neighbors matter?
+
+The spatial Markov chain repeats the transition table separately for states whose **neighbors**
+are poor, middle or rich (the class of the spatial lag at the start of the year). If location did
+not matter, the five tables would be the same.
+
+```elixir
+spatial = Spatex.Dynamics.spatial_markov(relative, w, k: 5, m: 5, fixed: true)
+
+# First row of each conditional table: states in the poorest class, by class of their neighbors.
+poorest =
+  for {counts, probs, lag} <- Enum.zip([spatial.t, spatial.p_cond, 1..5]) do
+    %{
+      neighbors_class: lag,
+      observations: counts |> hd() |> Enum.sum() |> trunc(),
+      stays_poorest: probs |> hd() |> hd(),
+      moves_up: probs |> hd() |> tl() |> Enum.sum()
+    }
+  end
+
+DF.new(poorest)
+```
+
+Read the rows as "a state in the poorest fifth whose neighbors are in class `neighbors_class`".
+With the poorest neighbors it stays at the bottom the next year 96% of the time; with neighbors
+in any higher class it moves up three to five times as often. The last row has only a handful of
+observations: a poor state almost never has rich neighbors, which is itself the regional pattern
+of section 3. Always look at `observations` before reading a probability.
+
+The homogeneity tests check that the difference is not chance:
+
+```elixir
+%{
+  q_statistic: spatial.q,
+  q_p_value: spatial.q_p_value,
+  likelihood_ratio: spatial.lr,
+  lr_p_value: spatial.lr_p_value,
+  degrees_of_freedom: spatial.dof_hom
+}
+```
+
+The p-values are essentially zero: **a state's chances depend on its neighborhood.** The full
+conditional tables are in `spatial.p_cond`, one per neighbor class:
+
+```elixir
+spatial.p_cond |> Enum.map(round3)
+```
+
+## 6. Where are the clusters today?
+
+Local Moran shows which states form the clusters in 2009, so the agency sees where a regional
+program would act on a whole area instead of a single state.
+
+```elixir
+lisa = Spatex.ESDA.moran_local(year.("2009"), w, permutations: 9999, seed: 2009)
+states = Spatex.GeoFrame.put_results(states, lisa, prefix: "lisa2009_")
+
+GeoFrame.Kino.deck(states,
+  color: {"lisa2009_cluster", :categorical},
+  opacity: 0.85,
+  tooltip: ["STATE_NAME", "rel2009", "lisa2009_cluster", "lisa2009_p_sim"]
+)
+```
+
+```elixir
+states
+|> GDF.data()
+|> DF.filter(lisa2009_cluster != "Insignificant")
+|> DF.select(["STATE_NAME", "SUB_REGION", "rel2009", "lisa2009_cluster", "lisa2009_p_sim"])
+|> DF.sort_by(asc: lisa2009_cluster)
+```
+
+`High-High` is the rich block of the Northeast; `Low-Low` the low-income block of the South.
+
+## 7. Deliverables
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "us_income_case")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(states, Path.join(out_dir, "states.gpkg"))
+:ok = DF.to_csv(gini_by_year, Path.join(out_dir, "gini_by_year.csv"))
+:ok = DF.to_csv(theil_by_year, Path.join(out_dir, "theil_by_year.csv"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## What this showed
+
+* **The gap closed, then stopped closing.** Inequality between states fell by more than half
+  between the 1930s and 1980 and has moved sideways since.
+* **What is left is regional.** Over 40% of it lies between Census subregions, and income is
+  spatially clustered in every decade.
+* **Positions are sticky.** Moving from the poorest to the richest fifth takes about a century on
+  average.
+* **Neighbors matter.** A poor state surrounded by the poorest states rarely leaves the bottom
+  class; with better-off neighbors it moves up three to five times as often. Policies that treat states one by one miss this.
+
+For the agency, this argues for regional programs that work across state lines. For the investor,
+it says a state's position changes slowly, and that the neighborhood is part of the forecast.
+
+The same tools apply to any panel of areas over time: unemployment by county, house prices by
+neighborhood, sales by sales territory.

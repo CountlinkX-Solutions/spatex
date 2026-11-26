@@ -1,0 +1,1603 @@
+{
+ "cases": [
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.31944800552235225, 0.31944800552235225, 0.31944800552235225, 0.31944800552235225, 0.24197072451914337, 0.24197072451914337, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "gaussian_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "gaussian",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.31944800552235225, 0.31944800552235225, 0.31944800552235225, 0.31944800552235225, 0.24197072451914337, 0.24197072451914337, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "gaussian_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "gaussian",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.3958376869447495, 0.38666811680284924, 0.3958376869447495, 0.3958376869447495, 0.3958376869447495, 0.39199089825257194, 0.3799306061986278, 0.39199089825257194, 0.24197072451914337, 0.28678666756641447]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "gaussian_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "gaussian",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.35206533556593145, 0.2419707487162134, 0.2419707487162134, 0.2419707487162134, 0.31944801972003956, 0.2419707487162134, 0.2419707487162134, 0.3332246148878838, 0.2419707487162134, 0.2867866864988134]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "gaussian_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "gaussian",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.8007374029168081, 0.8007374029168081, 0.8007374029168081, 0.8007374029168081, 0.6065306597126334, 0.6065306597126334, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "gaussian_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "gaussian",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.8824969246470149, 0.6065307203656933, 0.6065307203656933, 0.6065307203656933, 0.8007374385051326, 0.6065307203656933, 0.6065307203656933, 0.8352702414809957, 0.6065307203656933, 0.7188676171656622]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "gaussian_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "gaussian",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.31944800552235225, 0.16401007467599363, 0.026221889093709483, 8.910900187352152e-11, 0.31944800552235225, 0.31944800552235225, 0.09947713879274868, 6.075882849823286e-09, 0.16401007467599363, 0.31944800552235225, 0.24197072451914337, 2.6563019085219125e-07, 0.026221889093709483, 0.09947713879274868, 0.24197072451914337, 3.337086239563842e-05, 8.910900187352152e-11, 6.075882849823286e-09, 2.6563019085219125e-07, 3.337086239563842e-05]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "gaussian_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "gaussian",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.31944800552235225, 0.16401007467599363, 0.026221889093709483, 8.910900187352152e-11, 0.31944800552235225, 0.31944800552235225, 0.09947713879274868, 6.075882849823286e-09, 0.16401007467599363, 0.31944800552235225, 0.24197072451914337, 2.6563019085219125e-07, 0.026221889093709483, 0.09947713879274868, 0.24197072451914337, 3.337086239563842e-05, 8.910900187352152e-11, 6.075882849823286e-09, 2.6563019085219125e-07, 3.337086239563842e-05]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "gaussian_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "gaussian",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.35206533556593145, 0.2419707487162134, 0.2419707487162134, 0.2419707487162134, 0.31944801972003956, 0.2419707487162134, 0.2419707487162134, 0.3332246148878838, 0.2419707487162134, 0.2867866864988134]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "gaussian_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "gaussian",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.3958376869447495, 0.38666811680284924, 0.3958376869447495, 0.3958376869447495, 0.3958376869447495, 0.39199089825257194, 0.3799306061986278, 0.39199089825257194, 0.24197072451914337, 0.28678666756641447]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "gaussian_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "gaussian",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "triangular_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "triangular",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "triangular_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "triangular",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 3],
+    "weight": [0.875, 0.75, 0.875, 0.875, 0.875, 0.8125, 0.6875, 0.8125, 0.1875]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "triangular_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "triangular",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.500000049999995, 9.99999900663795e-08, 9.99999900663795e-08, 9.99999900663795e-08, 0.33333339999999334, 9.99999899553572e-08, 9.99999900663795e-08, 0.4000000599999941, 9.99999900663795e-08, 0.18750008124999196]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "triangular_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "triangular",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "triangular_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "triangular",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.500000049999995, 9.99999900663795e-08, 9.99999900663795e-08, 9.99999900663795e-08, 0.33333339999999334, 9.99999899553572e-08, 9.99999900663795e-08, 0.4000000599999941, 9.99999900663795e-08, 0.18750008124999196]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "triangular_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "triangular",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.33333333333333337, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "triangular_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "triangular",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.33333333333333337, 0.0, 0.0, 0.0, 0.33333333333333337, 0.33333333333333337, 0.0, 0.0, 0.0, 0.33333333333333337, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "triangular_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "triangular",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.500000049999995, 9.99999900663795e-08, 9.99999900663795e-08, 9.99999900663795e-08, 0.33333339999999334, 9.99999899553572e-08, 9.99999900663795e-08, 0.4000000599999941, 9.99999900663795e-08, 0.18750008124999196]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "triangular_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "triangular",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.875, 0.75, 0.875, 0.875, 0.875, 0.8125, 0.6875, 0.8125, 0.0, 0.1875]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "triangular_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "triangular",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.4166666666666667, 0.4166666666666667, 0.4166666666666667, 0.4166666666666667, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "parabolic_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "parabolic",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.4166666666666667, 0.4166666666666667, 0.4166666666666667, 0.4166666666666667, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "parabolic_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "parabolic",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 3],
+    "weight": [0.73828125, 0.703125, 0.73828125, 0.73828125, 0.73828125, 0.7236328125, 0.6767578125, 0.7236328125, 0.2548828125]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "parabolic_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "parabolic",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5625000374999944, 1.4999997760556383e-07, 1.4999997760556383e-07, 1.4999997760556383e-07, 0.4166667333333234, 1.4999997743903037e-07, 1.4999997760556383e-07, 0.480000053999992, 1.4999997760556383e-07, 0.2548829115234227]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "parabolic_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "parabolic",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.5555555555555556, 0.5555555555555556, 0.5555555555555556, 0.5555555555555556, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "parabolic_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "parabolic",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.7500000499999926, 1.9999997014075177e-07, 1.9999997014075177e-07, 1.9999997014075177e-07, 0.5555556444444312, 1.9999996991870717e-07, 1.9999997014075177e-07, 0.6400000719999893, 1.9999997014075177e-07, 0.3398438820312302]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "parabolic_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "parabolic",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.4166666666666667, 0.4166666666666667, 0.4166666666666667, 0.4166666666666667, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "parabolic_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "parabolic",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.4166666666666667, 0.0, 0.0, 0.0, 0.4166666666666667, 0.4166666666666667, 0.0, 0.0, 0.0, 0.4166666666666667, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "parabolic_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "parabolic",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5625000374999944, 1.4999997760556383e-07, 1.4999997760556383e-07, 1.4999997760556383e-07, 0.4166667333333234, 1.4999997743903037e-07, 1.4999997760556383e-07, 0.480000053999992, 1.4999997760556383e-07, 0.2548829115234227]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "parabolic_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "parabolic",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.73828125, 0.703125, 0.73828125, 0.73828125, 0.73828125, 0.7236328125, 0.6767578125, 0.7236328125, 0.0, 0.2548828125]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "parabolic_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "parabolic",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.28935185185185186, 0.28935185185185186, 0.28935185185185186, 0.28935185185185186, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "bisquare_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "bisquare",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.28935185185185186, 0.28935185185185186, 0.28935185185185186, 0.28935185185185186, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "bisquare_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "bisquare",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 3],
+    "weight": [0.9084320068359375, 0.823974609375, 0.9084320068359375, 0.9084320068359375, 0.9084320068359375, 0.8727407455444336, 0.7633352279663086, 0.8727407455444336, 0.1082754135131836]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "bisquare_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "bisquare",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5273438203124919, 3.749998880278275e-14, 3.749998880278275e-14, 3.749998880278275e-14, 0.289351944444438, 3.749998871951604e-14, 3.749998880278275e-14, 0.384000086399992, 3.749998880278275e-14, 0.10827549764442822]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "bisquare_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "bisquare",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.30864197530864196, 0.30864197530864196, 0.30864197530864196, 0.30864197530864196, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "bisquare_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "bisquare",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5625000749999914, 3.99999880563016e-14, 3.99999880563016e-14, 3.99999880563016e-14, 0.30864207407406724, 3.9999987967483774e-14, 3.99999880563016e-14, 0.4096000921599915, 3.99999880563016e-14, 0.11549386415405677]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "bisquare_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "bisquare",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.28935185185185186, 0.28935185185185186, 0.28935185185185186, 0.28935185185185186, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "bisquare_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "bisquare",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.28935185185185186, 0.0, 0.0, 0.0, 0.28935185185185186, 0.28935185185185186, 0.0, 0.0, 0.0, 0.28935185185185186, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "bisquare_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "bisquare",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5273438203124919, 3.749998880278275e-14, 3.749998880278275e-14, 3.749998880278275e-14, 0.289351944444438, 3.749998871951604e-14, 3.749998880278275e-14, 0.384000086399992, 3.749998880278275e-14, 0.10827549764442822]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "bisquare_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "bisquare",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.9084320068359375, 0.823974609375, 0.9084320068359375, 0.9084320068359375, 0.9084320068359375, 0.8727407455444336, 0.7633352279663086, 0.8727407455444336, 0.0, 0.1082754135131836]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "bisquare_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "bisquare",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.30114976701709756, 0.30114976701709756, 0.30114976701709756, 0.30114976701709756, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "tricube_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "tricube",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.30114976701709756, 0.30114976701709756, 0.30114976701709756, 0.30114976701709756, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "tricube_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "tricube",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 3],
+    "weight": [0.8591437569738906, 0.8243179321289062, 0.8591437569738906, 0.8591437569738906, 0.8591437569738906, 0.8472200923647449, 0.7874678619106064, 0.8472200923647449, 0.08612080317107029]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "tricube_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "tricube",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5789449046826659, 2.3333319385396703e-20, 2.3333319385396703e-20, 2.3333319385396703e-20, 0.3011498811370009, 2.3333319307681123e-20, 2.3333319385396703e-20, 0.4164485141263936, 2.3333319385396703e-20, 0.08612089284283926]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "tricube_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "tricube",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [0.34847330183407005, 0.34847330183407005, 0.34847330183407005, 0.34847330183407005, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "tricube_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "tricube",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.6699219611327991, 2.6999983860244758e-20, 2.6999983860244758e-20, 2.6999983860244758e-20, 0.34847343388710106, 2.699998377031673e-20, 2.6999983860244758e-20, 0.48189042348911265, 2.6999983860244758e-20, 0.09965417600385687]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "tricube_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "tricube",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.30114976701709756, 0.30114976701709756, 0.30114976701709756, 0.30114976701709756, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "tricube_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "tricube",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.30114976701709756, 0.0, 0.0, 0.0, 0.30114976701709756, 0.30114976701709756, 0.0, 0.0, 0.0, 0.30114976701709756, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "tricube_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "tricube",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.5789449046826659, 2.3333319385396703e-20, 2.3333319385396703e-20, 2.3333319385396703e-20, 0.3011498811370009, 2.3333319307681123e-20, 2.3333319385396703e-20, 0.4164485141263936, 2.3333319385396703e-20, 0.08612089284283926]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "tricube_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "tricube",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.8591437569738906, 0.8243179321289062, 0.8591437569738906, 0.8591437569738906, 0.8591437569738906, 0.8472200923647449, 0.7874678619106064, 0.8472200923647449, 0.0, 0.08612080317107029]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "tricube_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "tricube",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.39269908169872425, 0.39269908169872425, 0.39269908169872425, 0.39269908169872425, 4.8091767343044744e-17, 4.8091767343044744e-17, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "cosine_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "cosine",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.39269908169872425, 0.39269908169872425, 0.39269908169872425, 0.39269908169872425, 4.8091767343044744e-17, 4.8091767343044744e-17, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "cosine_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "cosine",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.7703069579159485, 0.7256132880348577, 0.7703069579159485, 0.7703069579159485, 0.7703069579159485, 0.7515791821650144, 0.6926593412803536, 0.7515791821650144, 4.8091767343044744e-17, 0.22798905237807573]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "cosine_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "cosine",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.555360410887691, 1.2337004281879384e-07, 1.2337004281879384e-07, 1.2337004281879384e-07, 0.39269915292644947, 1.233700426444004e-07, 1.2337004281879384e-07, 0.46164551750768895, 1.2337004281879384e-07, 0.2279891483000122]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "cosine_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "cosine",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.5000000000000001, 0.5000000000000001, 0.5000000000000001, 0.5000000000000001, 6.123233995736766e-17, 6.123233995736766e-17, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "cosine_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "cosine",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.7071068367225766, 1.570796171525586e-07, 1.570796171525586e-07, 1.570796171525586e-07, 0.5000000906899565, 1.5707961693051398e-07, 1.570796171525586e-07, 0.5877853285405185, 1.570796171525586e-07, 0.29028479938606505]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "cosine_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "cosine",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.39269908169872425, 0.39269908169872425, 0.39269908169872425, 0.39269908169872425, 4.8091767343044744e-17, 4.8091767343044744e-17, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "cosine_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "cosine",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.39269908169872425, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 0.39269908169872425, 0.39269908169872425, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 0.39269908169872425, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17, 4.8091767343044744e-17]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "cosine_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "cosine",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.555360410887691, 1.2337004281879384e-07, 1.2337004281879384e-07, 1.2337004281879384e-07, 0.39269915292644947, 1.233700426444004e-07, 1.2337004281879384e-07, 0.46164551750768895, 1.2337004281879384e-07, 0.2279891483000122]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "cosine_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "cosine",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.7703069579159485, 0.7256132880348577, 0.7703069579159485, 0.7703069579159485, 0.7703069579159485, 0.7515791821650144, 0.6926593412803536, 0.7515791821650144, 4.8091767343044744e-17, 0.22798905237807573]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "cosine_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "cosine",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [1.0, 1.0, 1.0, 1.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "boxcar_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "boxcar",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [1.0, 1.0, 1.0, 1.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "boxcar_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "boxcar",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 3],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "boxcar_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "boxcar",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "boxcar_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "boxcar",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 4],
+    "weight": [1.0, 1.0, 1.0, 1.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "boxcar_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "boxcar",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "boxcar_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "boxcar",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "boxcar_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "boxcar",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+   },
+   "cardinalities": [1, 2, 1, 0, 0],
+   "isolates": [3, 4],
+   "name": "boxcar_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "boxcar",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "boxcar_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "boxcar",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0]
+   },
+   "cardinalities": [2, 2, 2, 2, 1],
+   "isolates": [],
+   "name": "boxcar_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "boxcar",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.513417119032592, 0.513417119032592, 0.513417119032592, 0.513417119032592, 0.36787944117144233, 0.36787944117144233, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "exponential_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "exponential",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.513417119032592, 0.513417119032592, 0.513417119032592, 0.513417119032592, 0.36787944117144233, 0.36787944117144233, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "exponential_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "exponential",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.8824969025845953, 0.7788007830714049, 0.8824969025845953, 0.8824969025845953, 0.8824969025845953, 0.8290291181804004, 0.7316156289466418, 0.8290291181804004, 0.36787944117144233, 0.44374731008107987]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "exponential_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "exponential",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.6065306900391642, 0.36787947795938464, 0.36787947795938464, 0.36787947795938464, 0.5134171532603977, 0.3678794779593846, 0.36787947795938464, 0.5488116690227224, 0.36787947795938464, 0.4437473461355467]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "exponential_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "exponential",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [0.513417119032592, 0.513417119032592, 0.513417119032592, 0.513417119032592, 0.36787944117144233, 0.36787944117144233, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "exponential_bw1.5_decay",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": true,
+    "k": null,
+    "kernel": "exponential",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.6065306900391642, 0.36787947795938464, 0.36787947795938464, 0.36787947795938464, 0.5134171532603977, 0.3678794779593846, 0.36787947795938464, 0.5488116690227224, 0.36787947795938464, 0.4437473461355467]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "exponential_bwadaptive_k2_decay",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": true,
+    "k": 2,
+    "kernel": "exponential",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.513417119032592, 0.26359713811572677, 0.09697196786440505, 0.0012726338013398079, 0.513417119032592, 0.513417119032592, 0.18887560283756183, 0.0024787521766663585, 0.26359713811572677, 0.513417119032592, 0.36787944117144233, 0.004827949993831441, 0.09697196786440505, 0.18887560283756183, 0.36787944117144233, 0.013123728736940968, 0.0012726338013398079, 0.0024787521766663585, 0.004827949993831441, 0.013123728736940968]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "exponential_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "exponential",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [0.513417119032592, 0.26359713811572677, 0.09697196786440505, 0.0012726338013398079, 0.513417119032592, 0.513417119032592, 0.18887560283756183, 0.0024787521766663585, 0.26359713811572677, 0.513417119032592, 0.36787944117144233, 0.004827949993831441, 0.09697196786440505, 0.18887560283756183, 0.36787944117144233, 0.013123728736940968, 0.0012726338013398079, 0.0024787521766663585, 0.004827949993831441, 0.013123728736940968]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "exponential_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "exponential",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.6065306900391642, 0.36787947795938464, 0.36787947795938464, 0.36787947795938464, 0.5134171532603977, 0.3678794779593846, 0.36787947795938464, 0.5488116690227224, 0.36787947795938464, 0.4437473461355467]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "exponential_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "exponential",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [0.8824969025845953, 0.7788007830714049, 0.8824969025845953, 0.8824969025845953, 0.8824969025845953, 0.8290291181804004, 0.7316156289466418, 0.8290291181804004, 0.36787944117144233, 0.44374731008107987]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "exponential_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "exponential",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.5, 1.5, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "identity_bw1.5",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "identity",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 1, 1, 2, 2, 3, 4],
+    "neighbor": [1, 0, 2, 1, 3, 2, 4],
+    "weight": [1.0, 1.0, 1.0, 1.0, 1.5, 1.5, 0.0]
+   },
+   "cardinalities": [1, 2, 2, 1, 0],
+   "isolates": [4],
+   "name": "identity_bwdefault",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "identity",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 2.0, 1.0, 1.0, 1.0, 1.5, 2.5, 1.5, 8.0, 6.5]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "identity_bwdefault_k2",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "identity",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 2.0, 1.0, 1.0, 1.0, 1.5, 2.5, 1.5, 8.0, 6.5]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "identity_bwadaptive_k2",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "identity",
+    "taper": true
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [1.0, 2.0, 3.5, 10.0, 1.0, 1.0, 2.5, 9.0, 2.0, 1.0, 1.5, 8.0, 3.5, 2.5, 1.5, 6.5, 10.0, 9.0, 8.0, 6.5]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "identity_bw1.5_notaper",
+   "params": {
+    "bandwidth": 1.5,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "identity",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+    "neighbor": [1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 3, 4, 0, 1, 2, 4, 0, 1, 2, 3],
+    "weight": [1.0, 2.0, 3.5, 10.0, 1.0, 1.0, 2.5, 9.0, 2.0, 1.0, 1.5, 8.0, 3.5, 2.5, 1.5, 6.5, 10.0, 9.0, 8.0, 6.5]
+   },
+   "cardinalities": [4, 4, 4, 4, 4],
+   "isolates": [],
+   "name": "identity_bwdefault_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": null,
+    "kernel": "identity",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 2.0, 1.0, 1.0, 1.0, 1.5, 2.5, 1.5, 8.0, 6.5]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "identity_bwadaptive_k2_notaper",
+   "params": {
+    "bandwidth": "adaptive",
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "identity",
+    "taper": false
+   }
+  },
+  {
+   "adjacency": {
+    "focal": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+    "neighbor": [1, 2, 0, 2, 1, 3, 1, 2, 2, 3],
+    "weight": [1.0, 2.0, 1.0, 1.0, 1.0, 1.5, 2.5, 1.5, 8.0, 6.5]
+   },
+   "cardinalities": [2, 2, 2, 2, 2],
+   "isolates": [],
+   "name": "identity_bwdefault_k2_notaper",
+   "params": {
+    "bandwidth": null,
+    "coincident": "raise",
+    "decay": false,
+    "k": 2,
+    "kernel": "identity",
+    "taper": false
+   }
+  }
+ ],
+ "description": "Line x = [0, 1, 2, 3.5, 10]: every kernel, fixed/default/k/adaptive, decay, taper off.",
+ "meta": {
+  "esda": "2.10.0",
+  "libpysal": "4.15.1",
+  "numpy": "2.5.4"
+ },
+ "n": 5,
+ "name": "kernel_line",
+ "points": [
+  [0.0, 0.0],
+  [1.0, 0.0],
+  [2.0, 0.0],
+  [3.5, 0.0],
+  [10.0, 0.0]
+ ]
+}

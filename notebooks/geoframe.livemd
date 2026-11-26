@@ -1,0 +1,141 @@
+# Spatex with GeoFrame
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`) and reads its test fixtures.
+
+> **Not run in CI.** GeoFrame is not on Hex yet, so CI does not fetch it.
+> Run this notebook locally with a GeoFrame checkout:
+> 
+>     SPATEX_GEOFRAME_PATH=/path/to/geoframe livebook server notebooks/geoframe.livemd
+> 
+> or headlessly, to check that every cell works:
+> 
+>     SPATEX_GEOFRAME_PATH=/path/to/geoframe elixir scripts/run_livemd.exs notebooks/geoframe.livemd
+> 
+> The setup cell fails with a clear message when the variable is missing. The first run builds
+> GeoFrame's Rust core as well as Spatex's (a few minutes in debug mode).
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "set SPATEX_GEOFRAME_PATH to a GeoFrame checkout before starting this notebook"
+
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:jason, "~> 1.4"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## What this notebook does
+
+`Spatex.GeoFrame` connects the two libraries without a compile-time dependency: it builds spatial
+graphs straight from a `GeoFrame.GeoDataFrame`, hands attribute columns to the ESDA functions, and
+writes the per-site results back as new columns. The analysis is the one in `notebooks/tour.livemd`
+(Columbus crime: weights, Moran's I, LISA, G_Local with FDR, classification), driven from a
+GeoDataFrame and drawn as deck.gl choropleths with `GeoFrame.Kino.deck/2`.
+
+The Columbus polygons are in arbitrary digitizing units, not longitude and latitude, so the basemap
+shows them somewhere off the coast of West Africa. Only their shape matters here.
+
+## A GeoDataFrame from the Columbus data
+
+```elixir
+fixture = Path.join([__DIR__, "..", "test", "reference", "fixtures", "datasets", "columbus.json"])
+columbus = fixture |> File.read!() |> Jason.decode!()
+
+wkbs = Enum.map(columbus["wkb_hex"], &Base.decode16!(&1, case: :mixed))
+attributes = columbus["attributes"]
+
+frame =
+  GeoFrame.GeoDataFrame.new(
+    Explorer.DataFrame.new(crime: attributes["CRIME"], inc: attributes["INC"], hoval: attributes["HOVAL"]),
+    GeoFrame.GeoSeries.from_wkb!(wkbs)
+  )
+
+GeoFrame.Kino.deck(frame, color: {"crime", :viridis}, opacity: 0.8, tooltip: ["crime", "inc", "hoval"])
+```
+
+## Weights and Moran's I
+
+`Spatex.GeoFrame.graph/3` takes the method (`:queen`, `:rook`, `:knn`, `:distance_band`, `:kernel`
+or `:triangulation`) and its options. `values/2` returns a column as an `Explorer.Series`, which
+every Spatex function accepts.
+
+```elixir
+graph = Spatex.GeoFrame.graph(frame, :queen)
+crime = Spatex.GeoFrame.values(frame, "crime")
+
+moran = Spatex.ESDA.moran(crime, graph, permutations: 999, seed: 12345)
+%{i: moran.i, z: moran.z_norm, p_sim: moran.p_sim}
+```
+
+## LISA clusters as columns
+
+`put_results/3` adds the result's per-site fields as columns (`lisa_is`, `lisa_q`, `lisa_p_sim`,
+`lisa_cluster`, ...), so the frame keeps geometry, attributes and statistics together.
+
+```elixir
+lisa = Spatex.ESDA.moran_local(crime, graph, permutations: 999, seed: 12345)
+frame = Spatex.GeoFrame.put_results(frame, lisa)
+
+GeoFrame.Kino.deck(frame,
+  color: {"lisa_cluster", :categorical},
+  opacity: 0.85,
+  tooltip: ["crime", "lisa_cluster", "lisa_p_sim"]
+)
+```
+
+## Hot spots with FDR
+
+`g_local/3` results go back the same way. The FDR cut-off from `Spatex.ESDA.fdr/2` decides which
+sites to call hot or cold; here it is written as a column of its own.
+
+```elixir
+gi = Spatex.ESDA.g_local(crime, graph, star: true, permutations: 999, seed: 12345)
+cutoff = Spatex.ESDA.fdr(gi.p_sim, 0.05)
+
+frame = Spatex.GeoFrame.put_results(frame, gi)
+
+hot_cold =
+  Enum.zip_with(gi.zs, gi.p_sim, fn z, p ->
+    cond do
+      p >= cutoff -> "not significant"
+      z > 0 -> "hot spot"
+      true -> "cold spot"
+    end
+  end)
+
+frame = GeoFrame.GeoDataFrame.put(frame, "hot_cold", Explorer.Series.from_list(hot_cold))
+
+GeoFrame.Kino.deck(frame, color: {"hot_cold", :categorical}, tooltip: ["crime", "hot_cold"])
+```
+
+## Classification
+
+```elixir
+frame = Spatex.GeoFrame.put_results(frame, Spatex.Classify.fisher_jenks(crime, k: 5))
+
+GeoFrame.Kino.deck(frame, color: {"class_yb", :viridis}, tooltip: ["crime", "class_yb"])
+```
+
+## Regression with the frame's columns
+
+`Spatex.Regression.ols/3` takes an `Explorer.DataFrame` of regressors and `Explorer.Series`
+columns, so the frame's attribute table plugs in directly.
+
+```elixir
+x = frame |> GeoFrame.GeoDataFrame.data() |> Explorer.DataFrame.select(["inc", "hoval"])
+
+model =
+  Spatex.Regression.ols(crime, x,
+    name_y: "crime",
+    graph: Spatex.Graph.transform(graph, :r),
+    spat_diag: true,
+    moran: true
+  )
+
+IO.puts(Spatex.Regression.summary(model))
+```

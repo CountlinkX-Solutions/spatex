@@ -1,0 +1,29 @@
+# Elixir
+/_build/
+/deps/
+/doc/
+/cover/
+*.ez
+erl_crash.dump
+.elixir_ls/
+.elixir-tools/
+/tmp/
+
+# Rust
+/target/
+/priv/native/
+
+# Python (oracle fixture generators)
+.venv/
+__pycache__/
+
+# Tooling
+.codegraph/
+/odd/
+.atl/
+.claude/
+
+# Hex: the package tarball, and the NIF checksum file, which is generated when a release is
+# published and ships only inside the Hex package (see "Releasing" in the README).
+/spatex-*.tar
+checksum-*.exs

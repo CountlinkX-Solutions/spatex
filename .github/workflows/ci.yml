@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  # Any base branch, so pull requests stacked on other branches get CI too.
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  MIX_ENV: test
+
+jobs:
+  elixir:
+    name: Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: "1.17"
+            otp: "27"
+          - elixir: "1.19"
+            otp: "28"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Cache deps and build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+
+      - run: mix deps.get
+
+      # priv/native is a git-ignored build output that the cache does not hold, so a restored
+      # _build would look up to date and skip building the NIF. Rebuild the project app.
+      - name: Drop cached project build
+        run: rm -rf _build/test/lib/spatex
+
+      # Only enforce style on the newest pair; older formatters disagree.
+      - name: Check formatting
+        if: matrix.elixir == '1.19'
+        run: mix format --check-formatted
+
+      - run: mix compile --warnings-as-errors
+
+      - name: Credo
+        if: matrix.elixir == '1.19'
+        run: mix credo --strict
+
+      - run: mix test
+
+      # Broken references and missing modules in the docs fail the build.
+      - name: Docs
+        if: matrix.elixir == '1.19'
+        run: mix docs --warnings-as-errors
+
+      # Runs the code cells of the offline notebooks against this checkout (Mix.install with a path
+      # dependency, so the NIF is built once more in Mix.install's own directory, debug mode).
+      # The GeoFrame notebooks need a local GeoFrame checkout (GeoFrame is not on Hex yet) and are
+      # not run here.
+      - name: Notebooks
+        if: matrix.elixir == '1.19'
+        timeout-minutes: 30
+        env:
+          MIX_ENV: dev
+        run: |
+          for notebook in tour pysal_comparison; do
+            elixir scripts/run_livemd.exs "notebooks/${notebook}.livemd"
+          done
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace

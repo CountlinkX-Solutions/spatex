@@ -1,0 +1,92 @@
+{
+  "build_contiguity columbus (n=49, rook)": {
+    "mean_ms": 0.10092612407525105,
+    "median_ms": 0.094086,
+    "min_ms": 0.066,
+    "samples": 78670
+  },
+  "build_contiguity lattice (n=10000, rook)": {
+    "mean_ms": 6.614538094292803,
+    "median_ms": 6.525406,
+    "min_ms": 5.926997,
+    "samples": 1209
+  },
+  "build_knn (n=10000, k=8)": {
+    "mean_ms": 19.725628637931035,
+    "median_ms": 19.629484,
+    "min_ms": 18.707223,
+    "samples": 406
+  },
+  "build_knn (n=100000, k=8)": {
+    "mean_ms": 221.1477878108108,
+    "median_ms": 220.609097,
+    "min_ms": 212.4268,
+    "samples": 37
+  },
+  "fisher_jenks (n=5000, k=5)": {
+    "mean_ms": 35.05801791266376,
+    "median_ms": 34.879791,
+    "min_ms": 33.6644,
+    "samples": 229
+  },
+  "gwr select_bandwidth (n=1000, k=3)": {
+    "mean_ms": 15.11752239245283,
+    "median_ms": 14.879805,
+    "min_ms": 13.245883,
+    "samples": 530
+  },
+  "ml_lag ord (n=2500)": {
+    "mean_ms": 2516.308631,
+    "median_ms": 2490.893811,
+    "min_ms": 2396.134804,
+    "samples": 4
+  },
+  "moran (n=10000, 999 perms)": {
+    "mean_ms": 9.353600676023392,
+    "median_ms": 9.252162,
+    "min_ms": 7.786446,
+    "samples": 855
+  },
+  "moran (n=10000, 999 perms) [1 thread]": {
+    "mean_ms": 56.00377148951049,
+    "median_ms": 55.711843,
+    "min_ms": 54.660515,
+    "samples": 143
+  },
+  "moran_local (n=10000, 999 perms)": {
+    "mean_ms": 2918.7111346666666,
+    "median_ms": 3025.740596,
+    "min_ms": 2678.695196,
+    "samples": 3
+  },
+  "moran_local (n=10000, 999 perms) [1 thread]": {
+    "mean_ms": 3011.9299793333334,
+    "median_ms": 3075.211268,
+    "min_ms": 2869.098759,
+    "samples": 3
+  },
+  "moran_local (n=10000, 999 perms, keep_simulations: :tensor)": {
+    "median_ms": 133.8487875,
+    "mean_ms": 140.3655744827586,
+    "min_ms": 116.951746,
+    "samples": 58
+  },
+  "moran_local (n=10000, 999 perms, no sims kept)": {
+    "mean_ms": 42.38859216402116,
+    "median_ms": 42.466768,
+    "min_ms": 31.98431,
+    "samples": 189
+  },
+  "moran_local (n=10000, 999 perms, no sims kept) [1 thread]": {
+    "mean_ms": 96.58586416867469,
+    "median_ms": 95.920497,
+    "min_ms": 84.788114,
+    "samples": 83
+  },
+  "ols + spatial diagnostics (n=10000, k=4)": {
+    "mean_ms": 8.287520636269429,
+    "median_ms": 8.238619,
+    "min_ms": 6.423903,
+    "samples": 965
+  }
+}

@@ -1,0 +1,452 @@
+# Use case: targeting a SIDS prevention program in North Carolina
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`).
+
+## Setup
+
+> **Not run in CI.** GeoFrame is not on Hex yet, so CI does not fetch it.
+> Run this notebook locally with a GeoFrame checkout:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe livebook server notebooks/nc_sids_case.livemd
+> ```
+> 
+> or headlessly, to check that every cell works:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe elixir scripts/run_livemd.exs notebooks/nc_sids_case.livemd
+> ```
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "set SPATEX_GEOFRAME_PATH to a GeoFrame checkout before starting this notebook"
+
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## The question
+
+A state health department has money for a sudden infant death syndrome (SIDS) prevention
+program: safe-sleep campaigns, home visits after birth and training for maternity wards. It
+cannot cover all 100 counties, so it has to answer four questions:
+
+1. Are SIDS deaths spread evenly, or do they concentrate in some part of the state?
+2. If they concentrate, **which counties** should the program start in?
+3. Would that choice still have been right a few years later, or is it chasing noise?
+4. How should counties be grouped into **program districts** large enough to measure progress?
+
+The data are real: SIDS deaths and live births per county for 1974-78 and 1979-84 (Cressie, 1993,
+as distributed with PySAL). We plan with the first period and use the second to check the plan,
+as a department would when it reviews a program.
+
+## 1. Load the counties
+
+GeoFrame reads the Shapefile straight into a `GeoFrame.GeoDataFrame`: an Explorer data frame of
+attributes plus a geometry column. The file has no `.prj`; its coordinates are longitude /
+latitude on NAD27, so we record that CRS.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+data_dir = Path.join([__DIR__, "data", "nc_sids"])
+
+counties =
+  data_dir
+  |> Path.join("sids2.shp")
+  |> GeoFrame.read_file!()
+  |> GDF.set_crs("EPSG:4267")
+  |> GDF.select(["NAME", "FIPS", "BIR74", "SID74", "NWBIR74", "BIR79", "SID79", "NWBIR79"])
+
+{GDF.n_rows(counties), GDF.crs(counties)}
+```
+
+```elixir
+GeoFrame.Kino.deck(counties,
+  color: {"SID74", :viridis},
+  opacity: 0.85,
+  tooltip: ["NAME", "BIR74", "SID74"]
+)
+```
+
+The count map mostly shows where babies are born: Mecklenburg (Charlotte) and Guilford
+(Greensboro) have the most deaths because they have the most births. The program needs a
+**rate**.
+
+## 2. Rates, and why the raw rate misleads
+
+Deaths per 1,000 births is the obvious measure. Look at the counties with the **lowest** raw
+rates, the ones a program would leave out:
+
+```elixir
+rate = fn deaths, births -> S.multiply(S.divide(deaths, births), 1000) end
+
+counties =
+  counties
+  |> GDF.put("rate74", rate.(GDF.pull(counties, "SID74"), GDF.pull(counties, "BIR74")))
+  |> GDF.put("rate79", rate.(GDF.pull(counties, "SID79"), GDF.pull(counties, "BIR79")))
+
+counties
+|> GDF.data()
+|> DF.select(["NAME", "BIR74", "SID74", "rate74"])
+|> DF.sort_by(asc: rate74)
+|> DF.head(10)
+```
+
+All of them have a rate of exactly zero, and all are small: a few hundred births in five years,
+where the state average of about 2 per 1,000 predicts one death or none. Zero deaths there is
+luck, not safety, and one death more would move such a county from the bottom to the top half of
+the ranking. A ranking of raw rates mixes signal with the size of the county.
+
+The usual fix is **Empirical Bayes** smoothing: each county's rate is pulled towards the state
+rate in proportion to how little data it has. `Spatex.ESDA.assuncao_rate/2` gives the
+Empirical Bayes standardized rate of Assunção and Reis (1999): a z-like score, 0 for the state
+average, that is comparable between a county with 300 births and one with 20,000.
+
+```elixir
+eb74 =
+  Spatex.ESDA.assuncao_rate(GDF.pull(counties, "SID74"), GDF.pull(counties, "BIR74"))
+
+eb79 =
+  Spatex.ESDA.assuncao_rate(GDF.pull(counties, "SID79"), GDF.pull(counties, "BIR79"))
+
+counties =
+  counties
+  |> GDF.put("eb74", S.from_list(eb74))
+  |> GDF.put("eb79", S.from_list(eb79))
+
+GeoFrame.Kino.deck(counties,
+  color: {"eb74", :viridis},
+  opacity: 0.85,
+  tooltip: ["NAME", "BIR74", "SID74", "rate74", "eb74"]
+)
+```
+
+```elixir
+counties
+|> GDF.data()
+|> DF.select(["NAME", "BIR74", "SID74", "rate74", "eb74"])
+|> DF.sort_by(asc: eb74)
+|> DF.head(10)
+```
+
+The bottom of the smoothed ranking is now made of **large** counties with low rates (Forsyth,
+Rowan, Wake, Catawba): with thousands of births a low rate is credible. The tiny zero-death
+counties moved up towards the middle, where the evidence puts them.
+
+## 3. Is there a geographic pattern?
+
+Two counties are neighbors when their borders touch (queen contiguity). Contiguity does not
+measure distances, so longitude / latitude coordinates are fine here.
+`Spatex.ESDA.moran_rate/4` is Moran's I on the Empirical Bayes rates: positive and significant
+means counties with high rates sit next to counties with high rates.
+
+```elixir
+graph = Spatex.GeoFrame.graph(counties, :queen)
+
+moran74 =
+  Spatex.ESDA.moran_rate(
+    GDF.pull(counties, "SID74"),
+    GDF.pull(counties, "BIR74"),
+    graph,
+    permutations: 9999,
+    seed: 1974
+  )
+
+%{i: moran74.i, expected_if_random: moran74.ei, p_sim: moran74.p_sim}
+```
+
+Moran's I is clearly above its expectation under spatial randomness and the permutation p-value
+is small: SIDS is **not** spread evenly. A regional program makes sense. The next question is
+where.
+
+## 4. Where: local clusters
+
+Local Moran (LISA) runs the same test for each county against its own neighbors. Two levels of
+evidence are useful, and the program needs both:
+
+* the usual **exploratory** map, each county tested at 5%. With 100 tests about five counties
+  come out significant by chance alone, so this map proposes candidates;
+* the **false discovery rate** (`Spatex.ESDA.fdr/2`), which lowers the cut-off so that at most
+  5% of the counties it flags are expected to be false alarms. This is the list that can be
+  defended in a budget meeting.
+
+```elixir
+lisa74 = Spatex.ESDA.moran_local(eb74, graph, permutations: 9999, seed: 1974)
+cut74 = Spatex.ESDA.fdr(lisa74.p_sim, 0.05)
+
+counties =
+  counties
+  |> Spatex.GeoFrame.put_results(lisa74, prefix: "lisa74_")
+  |> GDF.put("fdr74", S.less(S.from_list(lisa74.p_sim), cut74))
+
+GeoFrame.Kino.deck(counties,
+  color: {"lisa74_cluster", :categorical},
+  opacity: 0.85,
+  tooltip: ["NAME", "eb74", "lisa74_cluster", "lisa74_p_sim", "fdr74"]
+)
+```
+
+```elixir
+counties
+|> GDF.data()
+|> DF.filter(lisa74_cluster == "High-High")
+|> DF.select(["NAME", "BIR74", "SID74", "rate74", "lisa74_p_sim", "fdr74"])
+|> DF.sort_by(asc: lisa74_p_sim)
+```
+
+**High-High** counties have a high rate *and* high-rate neighbors: the core of a cluster, where a
+program reaches a whole area at once. In 1974-78 they form two groups: the northeast (Bertie,
+Northampton, Halifax, Hertford, Warren) and the southeast (Robeson, Columbus). Few survive the
+false discovery rate (`fdr74`), which is normal with 100 counties and five years of data: the
+map is a strong hint, not proof.
+
+## 5. Would the plan have held up?
+
+A pattern found in one five-year window could be noise. The second period (1979-84) is data the
+plan never saw. We repeat the analysis on it and compare.
+
+```elixir
+lisa79 = Spatex.ESDA.moran_local(eb79, graph, permutations: 9999, seed: 1979)
+
+counties = Spatex.GeoFrame.put_results(counties, lisa79, prefix: "lisa79_")
+
+moran79 =
+  Spatex.ESDA.moran_rate(
+    GDF.pull(counties, "SID79"),
+    GDF.pull(counties, "BIR79"),
+    graph,
+    permutations: 9999,
+    seed: 1979
+  )
+
+%{moran_i_1974: moran74.i, moran_i_1979: moran79.i, p_sim_1979: moran79.p_sim}
+```
+
+The state-wide clustering is still there in 1979-84, weaker but significant. Which clusters
+held?
+
+```elixir
+counties
+|> GDF.data()
+|> DF.filter(lisa74_cluster == "High-High" or lisa79_cluster == "High-High")
+|> DF.select(["NAME", "lisa74_cluster", "lisa79_cluster", "rate74", "rate79"])
+|> DF.sort_by(asc: lisa79_cluster)
+```
+
+The southeast held: Robeson is a High-High core in both periods, and its neighbors Hoke and
+Richmond join it in 1979-84 (Cleveland, in the west, appears for the first time). The northeast
+group faded. A department that had put everything in the northeast would have been chasing a
+pattern that did not last; one that started in the southeast would have been right.
+
+A simple scorecard for the plan: the pooled 1979-84 rate of the counties picked in 1974-78
+(High-High), against the rest of the state.
+
+```elixir
+pooled = fn df ->
+  1000 * S.sum(DF.pull(df, "SID79")) / S.sum(DF.pull(df, "BIR79"))
+end
+
+data = GDF.data(counties)
+
+%{
+  picked_in_1974: data |> DF.filter(lisa74_cluster == "High-High") |> pooled.(),
+  rest_of_state: data |> DF.filter(lisa74_cluster != "High-High") |> pooled.()
+}
+```
+
+The counties picked with the old data still had a clearly higher rate years later, so even the
+partly faded plan pointed at real risk.
+
+## 6. Why there? A first look at a driver
+
+Program design depends on who is at risk. In these data the share of non-white births stands in
+for the large differences in poverty and access to prenatal care in North Carolina at the time.
+
+Rates of rare events have a variance that grows with the rate, which breaks the equal-variance
+assumption of least squares. Cressie (1993) used the **Freeman-Tukey** transform
+`sqrt(1000) * (sqrt(d / b) + sqrt((d + 1) / b))` on these data to stabilize it; we do the same and
+regress the 1974-78 transformed rate on the share of non-white births, asking Spatex for the
+spatial diagnostics of the residuals.
+
+```elixir
+freeman_tukey = fn deaths, births ->
+  root = &S.pow(&1, 0.5)
+  sum = S.add(root.(S.divide(deaths, births)), root.(S.divide(S.add(deaths, 1), births)))
+  S.multiply(sum, :math.sqrt(1000))
+end
+
+counties =
+  counties
+  |> GDF.put("ft74", freeman_tukey.(GDF.pull(counties, "SID74"), GDF.pull(counties, "BIR74")))
+  |> GDF.put(
+    "nw_share74",
+    S.multiply(S.divide(GDF.pull(counties, "NWBIR74"), GDF.pull(counties, "BIR74")), 100)
+  )
+
+w = Spatex.Graph.transform(graph, :r)
+y = GDF.pull(counties, "ft74")
+x = counties |> GDF.data() |> DF.select(["nw_share74"])
+
+ols = Spatex.Regression.ols(y, x, name_y: "ft_sids74", graph: w, spat_diag: true, moran: true)
+
+IO.puts(Spatex.Regression.summary(ols))
+```
+
+Two things to read in the summary:
+
+* the coefficient on `nw_share74` is positive and very significant: counties with more
+  non-white births had higher SIDS rates, so the program should reach those families first;
+* **Moran's I on the residuals** and the **Lagrange multiplier** tests are not significant.
+  Once the share of non-white births is in the model, what is left is no longer clustered in
+  space: this variable explains the geographic pattern of section 3.
+
+```elixir
+%{
+  moran_residuals: ols.moran_res,
+  lm_error: ols.lm_error,
+  lm_lag: ols.lm_lag,
+  robust_lm_error: ols.rlm_error,
+  robust_lm_lag: ols.rlm_lag
+}
+```
+
+Fitting the spatial error model anyway confirms it: `lam` (how strongly the residuals of
+neighbors move together) is close to zero and not significant, the coefficient barely moves and
+the AIC is practically the same. Here the diagnostics tell us the simpler model is enough; on
+other data the same tests would point to a spatial error or lag model.
+
+```elixir
+ml_error = Spatex.Regression.ml_error(y, x, w, name_y: "ft_sids74")
+
+%{
+  name_x: ml_error.name_x,
+  coefficients: ml_error.betas,
+  z_and_p: ml_error.z_stat,
+  aic_ml_error: ml_error.aic,
+  aic_ols: ols.aic
+}
+```
+
+This is an ecological model: it describes counties, not individual families. That is exactly the
+level at which the program allocates its resources, but it does not say why a given baby is at
+risk.
+
+## 7. Program districts
+
+The department wants to report progress by district, and a district rate is only stable if the
+district has enough births. `Spatex.Region.max_p/3` finds the **largest number of contiguous
+districts** in which every district reaches a minimum total, here 30,000 live births over the
+two periods (about 3,000 a year), while keeping counties with similar Empirical Bayes rates
+together.
+
+```elixir
+births = S.add(GDF.pull(counties, "BIR74"), GDF.pull(counties, "BIR79"))
+counties = GDF.put(counties, "births", births)
+
+districts =
+  Spatex.Region.max_p([eb74, eb79], graph,
+    threshold_variable: births,
+    threshold: 30_000,
+    seed: 2024
+  )
+
+counties = Spatex.GeoFrame.put_results(counties, districts, prefix: "district_")
+
+%{districts: districts.p, within_district_dissimilarity: districts.objective}
+```
+
+`GDF.dissolve/2` merges the counties of each district into one polygon and sums their births
+and deaths, which gives a stable rate per district.
+
+```elixir
+district_map =
+  counties
+  |> GDF.select(["district_labels", "BIR74", "SID74", "BIR79", "SID79", "births"])
+  |> GDF.dissolve(by: "district_labels", aggfunc: :sum)
+
+district_map =
+  district_map
+  |> GDF.put("rate74", rate.(GDF.pull(district_map, "SID74"), GDF.pull(district_map, "BIR74")))
+  |> GDF.put("rate79", rate.(GDF.pull(district_map, "SID79"), GDF.pull(district_map, "BIR79")))
+
+GeoFrame.Kino.deck(district_map,
+  color: {"rate74", :viridis},
+  opacity: 0.85,
+  tooltip: ["district_labels", "births", "rate74", "rate79"]
+)
+```
+
+```elixir
+district_map
+|> GDF.data()
+|> DF.sort_by(desc: rate74)
+```
+
+Every district has at least 30,000 births, so a change of one death per 1,000 births is a real
+change, not noise.
+
+The first phase of the program goes to the counties that are High-High in the most recent period,
+the core of the cluster that held. Their districts are where the program starts and where its
+effect will be measured:
+
+```elixir
+priority =
+  counties
+  |> GDF.data()
+  |> DF.filter(lisa79_cluster == "High-High")
+  |> DF.select(["NAME", "FIPS", "district_labels", "BIR79", "SID79", "rate79", "lisa74_cluster"])
+
+district_rates =
+  district_map
+  |> GDF.data()
+  |> DF.select(["district_labels", "rate79"])
+  |> DF.rename(rate79: "district_rate79")
+
+DF.join(priority, district_rates, on: "district_labels")
+```
+
+Robeson and Richmond fall in the district with the highest 1979-84 rate of the state, so the
+district view and the county clusters agree on where to start.
+
+## 8. Deliverables
+
+The analysis lives in one frame: geometry, the original data, the smoothed rates, the cluster
+labels for both periods and the district of each county. GeoFrame writes it to a GeoPackage
+that opens in QGIS or ArcGIS, and the priority list to CSV for the program team.
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "nc_sids_case")
+File.mkdir_p!(out_dir)
+
+counties_path = Path.join(out_dir, "counties.gpkg")
+districts_path = Path.join(out_dir, "districts.gpkg")
+priority_path = Path.join(out_dir, "priority_counties.csv")
+
+:ok = GeoFrame.write_file(counties, counties_path)
+:ok = GeoFrame.write_file(district_map, districts_path)
+:ok = DF.to_csv(priority, priority_path)
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## What this showed
+
+* **GeoFrame** did the GIS work: reading a Shapefile, the CRS, maps, dissolving counties into
+  districts and writing GeoPackage files.
+* **Spatex** did the spatial statistics: neighbors, Empirical Bayes rates, global and local
+  Moran with a false discovery rate, regression with spatial diagnostics and a spatial error
+  model, and regionalization under a population constraint.
+* Both work on the same `GeoDataFrame`, so each result is a column next to the data it came
+  from, and the whole analysis is reproducible: every random step takes a `seed`.
+
+The same steps fit other questions that come as "counts in areas": disease incidence, crime per
+resident, insurance claims per policy, defaults per loan, store sales per household.

@@ -1,0 +1,279 @@
+# Caso de uso: encontrar el origen de un brote. El mapa del cólera de John Snow, Londres 1854
+
+Ejecuta este notebook desde una copia git de Spatex: instala Spatex desde esa copia (`path:`).
+
+## Preparación
+
+> **No se ejecuta en CI.** GeoFrame aún no está en Hex, así que CI no lo descarga. Ejecuta
+> este notebook en local con una copia de GeoFrame:
+>
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe livebook server notebooks/es/caso_colera_snow.livemd
+> ```
+>
+> o sin interfaz, para comprobar que todas las celdas funcionan:
+>
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe elixir scripts/run_livemd.exs notebooks/es/caso_colera_snow.livemd
+> ```
+>
+> Versión en inglés: `notebooks/snow_case.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "define SPATEX_GEOFRAME_PATH con la ruta a una copia de GeoFrame antes de abrir este notebook"
+
+Mix.install([
+  {:spatex, path: Path.join([__DIR__, "..", ".."])},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## La pregunta
+
+A finales de agosto de 1854 el cólera mató a cientos de personas en pocos días en el barrio de
+Soho, en Londres. La explicación aceptada era el «aire viciado». El médico John Snow sospechaba
+del agua, y cartografió cada muerte y cada bomba pública de agua. Es el ejemplo fundacional de la
+epidemiología espacial, y las preguntas que responde son las que sigue haciendo cualquier
+investigación de un brote:
+
+1. ¿Los casos están **agrupados**, o repartidos como la población?
+2. ¿Dónde está el **centro** del brote, y hay ahí un origen plausible?
+3. ¿Cuántos casos están **más cerca** de ese origen que de cualquier otro?
+
+Los datos son una digitalización del mapa de Snow: las direcciones con muertes, las 13 bombas
+públicas y las calles (distribuidos con PySAL).
+
+## 1. Cargar el mapa y usar metros reales
+
+Las capas vienen en Web Mercator (EPSG:3857), que a la latitud de Londres estira las distancias
+alrededor de un 60%. GeoFrame las reproyecta al British National Grid (EPSG:27700), cuyas unidades
+son metros reales. La reproyección incluye el cambio del datum WGS 84 al datum británico
+(OSGB36), unos 125 metros aquí, como hace PROJ.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+alias GeoFrame.GeoSeries, as: GS
+
+dir = Path.join([__DIR__, "..", "data", "snow"])
+
+read = fn name ->
+  dir
+  |> Path.join(name)
+  |> GeoFrame.read_file!()
+  |> GDF.to_crs("EPSG:27700")
+end
+
+deaths = read.("SohoPeople.shp")
+pumps = read.("SohoWater.shp")
+streets = read.("Soho_Network.shp")
+
+{GDF.n_rows(deaths), GDF.n_rows(pumps), GDF.crs(deaths)}
+```
+
+`Count` es el número de muertes registradas en cada dirección. 191 direcciones tienen `Count` 0 y
+solo dos tienen 1, lo que sugiere que el 0 representa una única muerte; leído así, el mapa recoge
+583 muertes, cerca de las 578 que registró Snow. El análisis trabaja sobre todo con las
+**direcciones**, que no necesitan ese supuesto, y usa los recuentos de muertes solo donde aportan
+algo.
+
+```elixir
+deaths_per_address = deaths |> GDF.pull("Count") |> S.to_list() |> Enum.map(&max(&1, 1))
+deaths = GDF.put(deaths, "deaths", S.from_list(deaths_per_address))
+
+%{direcciones: GDF.n_rows(deaths), muertes_si_0_es_1: Enum.sum(deaths_per_address)}
+```
+
+```elixir
+GeoFrame.Kino.deck(streets, opacity: 0.6, tooltip: [])
+```
+
+```elixir
+GeoFrame.Kino.deck(deaths,
+  color: {"deaths", :viridis},
+  radius: 4,
+  tooltip: ["deaths"]
+)
+```
+
+## 2. El centro del brote
+
+`Spatex.PointPats` mide dónde está centrado un conjunto de puntos y cuánto se dispersa. Tomamos
+las coordenadas de cada dirección y de cada bomba, e identificamos la bomba de Broad Street (la
+sospechosa de Snow) por su ubicación histórica, 51,5133 N, 0,1367 O:
+
+```elixir
+coordinates = fn gdf ->
+  c = gdf |> GDF.geometry() |> GS.get_coordinates()
+  Enum.zip(S.to_list(c["x"]), S.to_list(c["y"]))
+end
+
+addresses = coordinates.(deaths)
+wells = coordinates.(pumps)
+
+distance = fn {x1, y1}, {x2, y2} -> :math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2) end
+
+historical =
+  DF.new(name: ["Broad Street pump"])
+  |> GDF.new(GS.from_wkt!(["POINT(-0.13667 51.51334)"], crs: "EPSG:4326"))
+  |> GDF.to_crs("EPSG:27700")
+  |> coordinates.()
+  |> hd()
+
+broad_index =
+  wells
+  |> Enum.with_index()
+  |> Enum.min_by(fn {w, _} -> distance.(w, historical) end)
+  |> elem(1)
+
+broad = Enum.at(wells, broad_index)
+
+%{bomba_broad_street: broad_index, metros_a_la_ubicacion_historica: distance.(broad, historical)}
+```
+
+```elixir
+center = Spatex.PointPats.mean_center(addresses)
+weighted_center = Spatex.PointPats.weighted_mean_center(addresses, deaths_per_address)
+median = Spatex.PointPats.euclidean_median(addresses)
+
+DF.new(
+  pump: Enum.to_list(0..(length(wells) - 1)),
+  meters_to_weighted_center: Enum.map(wells, &distance.(&1, weighted_center))
+)
+|> DF.sort_by(asc: meters_to_weighted_center)
+|> DF.head(4)
+```
+
+El centro de las muertes (ponderado por muertes o no, y también la mediana) cae a unos 30 metros
+de la bomba de Broad Street. La siguiente bomba está a unos 200 metros, y las bombas están a entre
+80 y 200 metros unas de otras, así que no es un empate: el brote está centrado en una bomba.
+
+```elixir
+%{
+  centro_a_broad_street: distance.(center, broad),
+  centro_ponderado_a_broad_street: distance.(weighted_center, broad),
+  mediana_a_broad_street: distance.(median, broad),
+  distancia_estandar: Spatex.PointPats.std_distance(addresses)
+}
+```
+
+La distancia estándar, unos 150 metros, es la distancia típica de una dirección al centro: el
+brote abarcó solo unas pocas manzanas.
+
+## 3. La bomba más cercana
+
+El argumento decisivo de Snow fue comparar, para cada muerte, qué bomba le quedaba más cerca.
+Asignamos cada dirección a su bomba más cercana (las zonas que resultan son las celdas de Voronoi
+de las bombas):
+
+```elixir
+nearest =
+  Enum.map(addresses, fn a ->
+    wells |> Enum.with_index() |> Enum.min_by(fn {w, _} -> distance.(a, w) end) |> elem(1)
+  end)
+
+deaths = GDF.put(deaths, "nearest_pump", S.from_list(Enum.map(nearest, &"bomba #{&1}")))
+
+DF.new(pump: nearest, deaths: deaths_per_address)
+|> DF.group_by("pump")
+|> DF.summarise(addresses: count(deaths), deaths: sum(deaths))
+|> DF.sort_by(desc: addresses)
+|> DF.head(5)
+```
+
+```elixir
+GeoFrame.Kino.deck(deaths,
+  color: {"nearest_pump", :categorical},
+  radius: 4,
+  tooltip: ["deaths", "nearest_pump"]
+)
+```
+
+Más de la mitad de las direcciones, y más del 60% de las muertes, están más cerca de la bomba de
+Broad Street que de cualquiera de las otras doce; la segunda bomba reúne menos de una cuarta parte.
+La mitad de las direcciones están a menos de 130 metros de ella:
+
+```elixir
+to_broad = addresses |> Enum.map(&distance.(&1, broad)) |> Enum.sort()
+quantile = fn q -> Enum.at(to_broad, round(q * (length(to_broad) - 1))) end
+
+%{un_cuarto_a_menos_de: quantile.(0.25), la_mitad_a_menos_de: quantile.(0.5), todas_a_menos_de: List.last(to_broad)}
+```
+
+## 4. ¿Agrupadas, o repartidas como la población?
+
+Las funciones de Ripley comparan el patrón con la aleatoriedad espacial completa (CSR).
+`l_test/2` simula 999 patrones aleatorios en la misma zona; si la función L observada queda por
+encima de la envolvente de las simulaciones, los puntos tienen a esa distancia más vecinos de los
+que da el azar.
+
+```elixir
+l = Spatex.PointPats.l_test(addresses, permutations: 999, seed: 1854)
+
+DF.new(
+  distance_m: l.support,
+  observed: l.statistic,
+  envelope_low: l.envelope_low,
+  envelope_high: l.envelope_high,
+  p_value: l.pvalue
+)
+```
+
+A partir de unos 11 metros, la L observada queda por encima de la envolvente y el p-valor es el
+más pequeño posible con 999 simulaciones. La función G de vecino más cercano cuenta lo mismo:
+
+```elixir
+g = Spatex.PointPats.g_test(addresses, permutations: 999, seed: 1854)
+DF.new(distance_m: g.support, observed: g.statistic, envelope_high: g.envelope_high)
+```
+
+Un recuento por cuadrantes da un número sencillo de comunicar. La zona se divide en una cuadrícula
+de 3 x 3 y los recuentos se comparan con un reparto uniforme:
+
+```elixir
+quadrats = Spatex.PointPats.quadrat_test(addresses, permutations: 999, seed: 1854)
+
+%{recuentos_por_celda: quadrats.counts, chi2: quadrats.chi2, p_valor: quadrats.chi2_pvalue}
+```
+
+La celda central reúne alrededor de un tercio de todas las direcciones, el triple de lo que le
+correspondería.
+
+Estas pruebas hay que leerlas con cuidado: la gente tampoco vivía repartida de forma uniforme por
+Soho, vivía a lo largo de las calles, así que una prueba contra CSR rechazará la aleatoriedad para
+casi cualquier conjunto de direcciones. Muestran que las muertes están concentradas, no por qué.
+La prueba a favor del agua es **dónde** se concentran: en una bomba, con las demás bombas en el
+borde del brote.
+
+## 5. Entregables
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "caso_snow")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(deaths, Path.join(out_dir, "muertes_con_bomba_cercana.gpkg"))
+:ok = GeoFrame.write_file(pumps, Path.join(out_dir, "bombas.gpkg"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## Lo que hemos visto
+
+* La **centrografía** (centro medio, centro ponderado, mediana euclídea, distancia estándar)
+  sitúa un brote y mide su tamaño.
+* Asignar los casos al **origen candidato más cercano** es una prueba sencilla y potente de una
+  hipótesis.
+* Las funciones **G, K y L de Ripley** con envolventes de simulación y la **prueba de cuadrantes**
+  miden el agrupamiento, con la salvedad de que la población en riesgo rara vez está repartida al
+  azar.
+
+Snow convenció a la parroquia para que quitara la palanca de la bomba de Broad Street el 8 de
+septiembre de 1854. El mismo análisis sirve para cualquier conjunto de sucesos con orígenes
+candidatos: casos de una enfermedad alrededor de torres de refrigeración, quejas alrededor de una
+fábrica, accidentes alrededor de un cruce, averías alrededor de un proveedor.

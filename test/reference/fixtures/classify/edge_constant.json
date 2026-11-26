@@ -1,0 +1,503 @@
+{
+ "cases": [
+  {
+   "error": "Not enough unique values in array to form 5 classes. All values in `y` are equal.",
+   "method": "equal_interval",
+   "params": {
+    "k": 5
+   }
+  },
+  {
+   "error": "Not enough unique values in array to form 3 classes. All values in `y` are equal.",
+   "method": "equal_interval",
+   "params": {
+    "k": 3
+   }
+  },
+  {
+   "error": "Not enough unique values in array to form 7 classes. All values in `y` are equal.",
+   "method": "equal_interval",
+   "params": {
+    "k": 7
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "drift": false,
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 5,
+   "legend": ["[3.00, 3.00]"],
+   "max_class": 0,
+   "method": "quantiles",
+   "params": {
+    "k": 5
+   },
+   "tss": 0.0,
+   "warnings": 1,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "drift": false,
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 4,
+   "legend": ["[3.00, 3.00]"],
+   "max_class": 0,
+   "method": "quantiles",
+   "params": {
+    "k": 4
+   },
+   "tss": 0.0,
+   "warnings": 1,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "drift": false,
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 10,
+   "legend": ["[3.00, 3.00]"],
+   "max_class": 0,
+   "method": "quantiles",
+   "params": {
+    "k": 10
+   },
+   "tss": 0.0,
+   "warnings": 1,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0, 3.0, 3.0, 3.0],
+   "counts": [4, 0, 0, 0, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "high_outlier_ids": [],
+   "iqr": 0.0,
+   "k": 5,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]"],
+   "low_outlier_ids": [0, 1, 2, 3],
+   "method": "box_plot",
+   "params": {
+    "hinge": 1.5
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0, 3.0, 3.0, 3.0],
+   "counts": [4, 0, 0, 0, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "high_outlier_ids": [],
+   "iqr": 0.0,
+   "k": 5,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]"],
+   "low_outlier_ids": [0, 1, 2, 3],
+   "method": "box_plot",
+   "params": {
+    "hinge": 3.0
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0, 3.0, 3.0, 3.0],
+   "counts": [4, 0, 0, 0, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "high_outlier_ids": [],
+   "iqr": 0.0,
+   "k": 5,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]"],
+   "low_outlier_ids": [0, 1, 2, 3],
+   "method": "box_plot",
+   "params": {
+    "hinge": 0.5
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0, 3.0, 3.0],
+   "counts": [4, 0, 0, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 3, 0, 0, 3, 0, 0, 3],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 4,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]"],
+   "method": "std_mean",
+   "params": {
+    "anchor": false,
+    "multiples": [-2, -1, 1, 2]
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0],
+   "counts": [4, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 2,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]"],
+   "method": "std_mean",
+   "params": {
+    "anchor": false,
+    "multiples": [-1, 1]
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "error": "cannot convert float NaN to integer",
+   "method": "std_mean",
+   "params": {
+    "anchor": true,
+    "multiples": [-2, -1, 1, 2]
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+   "counts": [4, 0, 0, 0, 0, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 5, 0, 0, 5, 0, 0, 5, 0, 0, 5, 0, 0, 5],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 6,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]"],
+   "method": "percentiles",
+   "params": {
+    "pct": [1, 10, 50, 90, 99, 100]
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0, 3.0],
+   "counts": [4, 0, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 2, 0, 0, 2],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 3,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]", "(3.00, 3.00]"],
+   "method": "percentiles",
+   "params": {
+    "pct": [10, 50, 90]
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "error": "Not enough unique values in array to form 5 classes. All values in `y` are equal.",
+   "method": "maximum_breaks",
+   "params": {
+    "k": 5
+   }
+  },
+  {
+   "error": "Not enough unique values in array to form 3 classes. All values in `y` are equal.",
+   "method": "maximum_breaks",
+   "params": {
+    "k": 3
+   }
+  },
+  {
+   "error": "Not enough unique values in array to form 8 classes. All values in `y` are equal.",
+   "method": "maximum_breaks",
+   "params": {
+    "k": 8
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 1,
+   "legend": ["[3.00, 3.00]"],
+   "method": "head_tail_breaks",
+   "params": {},
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "error": "Fewer unique values (1) than specified classes (5).",
+   "method": "fisher_jenks",
+   "params": {
+    "k": 5
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "iterations": 1,
+   "k": 5,
+   "legend": ["[3.00, 3.00]"],
+   "method": "jenks_caspall",
+   "params": {
+    "k": 5
+   },
+   "tss": 0.0,
+   "warnings": 9,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 1,
+   "legend": ["[3.00, 3.00]"],
+   "method": "natural_breaks",
+   "params": {
+    "k": 5
+   },
+   "tss": 0.0,
+   "warnings": 1,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "error": "Fewer unique values (1) than specified classes (3).",
+   "method": "fisher_jenks",
+   "params": {
+    "k": 3
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "iterations": 1,
+   "k": 3,
+   "legend": ["[3.00, 3.00]"],
+   "method": "jenks_caspall",
+   "params": {
+    "k": 3
+   },
+   "tss": 0.0,
+   "warnings": 5,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 1,
+   "legend": ["[3.00, 3.00]"],
+   "method": "natural_breaks",
+   "params": {
+    "k": 3
+   },
+   "tss": 0.0,
+   "warnings": 1,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "error": "Fewer unique values (1) than specified classes (7).",
+   "method": "fisher_jenks",
+   "params": {
+    "k": 7
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "iterations": 1,
+   "k": 7,
+   "legend": ["[3.00, 3.00]"],
+   "method": "jenks_caspall",
+   "params": {
+    "k": 7
+   },
+   "tss": 0.0,
+   "warnings": 13,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0],
+   "counts": [4],
+   "find_bin": {
+    "bin": [0, 0, 0, 0, 0, 0, 0, 0],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 1,
+   "legend": ["[3.00, 3.00]"],
+   "method": "natural_breaks",
+   "params": {
+    "k": 7
+   },
+   "tss": 0.0,
+   "warnings": 1,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "error": "Not enough unique values in array to form 5 classes. All values in `y` are equal.",
+   "method": "jenks_caspall_forced",
+   "params": {
+    "k": 5
+   }
+  },
+  {
+   "error": "Not enough unique values in array to form 3 classes. All values in `y` are equal.",
+   "method": "jenks_caspall_forced",
+   "params": {
+    "k": 3
+   }
+  },
+  {
+   "error": "arange: cannot compute length",
+   "method": "pretty_breaks",
+   "params": {
+    "k": 5
+   }
+  },
+  {
+   "error": "arange: cannot compute length",
+   "method": "pretty_breaks",
+   "params": {
+    "k": 3
+   }
+  },
+  {
+   "error": "arange: cannot compute length",
+   "method": "pretty_breaks",
+   "params": {
+    "k": 7
+   }
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0],
+   "counts": [4, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 2,
+   "legend": ["[3.00, 3.00]", "(3.00, 3.00]"],
+   "lowest_param": null,
+   "method": "user_defined",
+   "params": {
+    "bins": [3.0, 3.0],
+    "lowest": null
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  },
+  {
+   "adcm": 0.0,
+   "bins": [3.0, 3.0],
+   "counts": [4, 0],
+   "find_bin": {
+    "bin": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+    "x": [2.0, 3.0, 3.0, 4.0, 3.0, 3.0, 2.9999999999999996, 3.0000000000000004, 3.0, 2.9999999999999996, 3.0000000000000004]
+   },
+   "gadf": 1.0,
+   "k": 2,
+   "legend": ["[2.00, 3.00]", "(3.00, 3.00]"],
+   "lowest_param": 2.0,
+   "method": "user_defined",
+   "params": {
+    "bins": [3.0, 3.0],
+    "lowest": 2.0
+   },
+   "tss": 0.0,
+   "warnings": 0,
+   "yb": [0, 0, 0, 0]
+  }
+ ],
+ "description": "Constant vector",
+ "meta": {
+  "esda": "2.10.0",
+  "libpysal": "4.15.1",
+  "mapclassify": "2.11.0",
+  "numpy": "2.5.4"
+ },
+ "name": "edge_constant",
+ "skipped": [],
+ "y": [3.0, 3.0, 3.0, 3.0]
+}

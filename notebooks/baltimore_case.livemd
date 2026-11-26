@@ -1,0 +1,303 @@
+# Use case: what is a house worth, and how much is its neighborhood? Baltimore, 1978
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`).
+
+## Setup
+
+> **Not run in CI.** GeoFrame is not on Hex yet, so CI does not fetch it.
+> Run this notebook locally with a GeoFrame checkout:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe livebook server notebooks/baltimore_case.livemd
+> ```
+> 
+> or headlessly, to check that every cell works:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe elixir scripts/run_livemd.exs notebooks/baltimore_case.livemd
+> ```
+> 
+> Spanish version: `notebooks/es/caso_vivienda_baltimore.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "set SPATEX_GEOFRAME_PATH to a GeoFrame checkout before starting this notebook"
+
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## The question
+
+An appraiser, a tax assessor or a buyer wants to know what each feature of a house is worth: a
+fireplace, a garage, one more bathroom. The usual tool is a **hedonic regression**: price on the
+features of the house. But a house is also sold with its location, and houses near expensive
+houses tend to be expensive. If the model ignores that:
+
+1. Are its estimates of what a fireplace is worth still right?
+2. How much of a price is the house, and how much is the neighborhood?
+3. Can we trust the significance tests?
+4. Does the same model work in the city and in the suburbs?
+
+The data are real: 211 house sales in Baltimore in 1978 with their features and location
+(Dubin, 1992, as distributed with PySAL). Prices are in thousands of dollars.
+
+## 1. Load the sales
+
+Each sale is a point. GeoFrame reads the Shapefile; the coordinates are in a local planar system,
+so distances between points are meaningful.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+alias GeoFrame.GeoSeries, as: GS
+
+sales =
+  [__DIR__, "data", "baltimore", "baltim.shp"]
+  |> Path.join()
+  |> GeoFrame.read_file!()
+
+features = ~w(NROOM NBATH PATIO FIREPL AC GAR AGE LOTSZ SQFT)
+data = GDF.data(sales)
+
+# The coordinates have no CRS. They match the Maryland State Plane (NAD27, EPSG:26785) in
+# thousands of US feet, which places the sales in Baltimore; maps draw them that way, the analysis
+# keeps the original units.
+on_map = fn frame ->
+  geometry = GDF.geometry(frame)
+  xs = geometry |> GS.x() |> S.multiply(1000)
+  ys = geometry |> GS.y() |> S.multiply(1000)
+  GDF.new(GDF.data(frame), GS.from_xy(xs, ys, crs: "EPSG:26785"))
+end
+
+{GDF.n_rows(sales), S.median(data["PRICE"])}
+```
+
+The features are: rooms (`NROOM`), bathrooms (`NBATH`), patio, fireplace, air conditioning and
+garage (`PATIO`, `FIREPL`, `AC`, `GAR`, 1 when present), age in years (`AGE`), lot size
+(`LOTSZ`) and living area (`SQFT`).
+
+```elixir
+GeoFrame.Kino.deck(on_map.(sales),
+  color: {"PRICE", :viridis},
+  radius: 6,
+  tooltip: ["PRICE", "NROOM", "NBATH", "AGE", "SQFT"]
+)
+```
+
+## 2. Do neighboring houses have similar prices?
+
+Points have no shared borders, so neighbors are the **k nearest sales**; six is a common choice
+for a sample this size. Row-standardizing the graph makes the spatial lag the average price of
+the six neighbors.
+
+```elixir
+graph = sales |> Spatex.GeoFrame.graph(:knn, k: 6) |> Spatex.Graph.transform(:r)
+moran = Spatex.ESDA.moran(data["PRICE"], graph, permutations: 999, seed: 1978)
+
+%{moran_i: moran.i, p_sim: moran.p_sim}
+```
+
+Prices are strongly clustered. That alone does not break a hedonic model: neighboring houses may
+simply have similar features. What matters is whether the **residuals** are still clustered once
+the features are in.
+
+## 3. The standard model and its spatial diagnostics
+
+```elixir
+x = DF.select(data, features)
+
+ols =
+  Spatex.Regression.ols(data["PRICE"], x,
+    name_y: "PRICE",
+    graph: graph,
+    spat_diag: true,
+    moran: true
+  )
+
+IO.puts(Spatex.Regression.summary(ols))
+```
+
+Taken at face value, the model explains 65% of the variation and a fireplace adds about 11
+thousand dollars. But look at the end of the summary:
+
+```elixir
+%{
+  moran_residuals: ols.moran_res,
+  lm_error: ols.lm_error,
+  lm_lag: ols.lm_lag,
+  robust_lm_error: ols.rlm_error,
+  robust_lm_lag: ols.rlm_lag
+}
+```
+
+The residuals are clustered, so the model is missing something spatial. The robust Lagrange
+multiplier tests tell us what: **robust LM lag** is highly significant and **robust LM error** is
+not. That is the classic signal for a **spatial lag** model, where a house's price depends on the
+prices around it: buyers and appraisers look at what nearby houses sold for.
+
+A result that depends on the arbitrary choice of six neighbors would be fragile, so we check
+four and eight:
+
+```elixir
+for k <- [4, 6, 8] do
+  g = sales |> Spatex.GeoFrame.graph(:knn, k: k) |> Spatex.Graph.transform(:r)
+  o = Spatex.Regression.ols(data["PRICE"], x, graph: g, spat_diag: true)
+  %{k: k, robust_lm_lag_p: elem(o.rlm_lag, 1), robust_lm_error_p: elem(o.rlm_error, 1)}
+end
+```
+
+The conclusion holds for every choice.
+
+## 4. The spatial lag model
+
+`Spatex.Regression.ml_lag/4` adds the average price of the neighbors, `W_PRICE`, as a regressor
+and estimates its weight `rho` by maximum likelihood.
+
+```elixir
+lag = Spatex.Regression.ml_lag(data["PRICE"], x, graph, name_y: "PRICE")
+error = Spatex.Regression.ml_error(data["PRICE"], x, graph, name_y: "PRICE")
+
+%{rho: lag.rho, aic_ols: ols.aic, aic_spatial_error: error.aic, aic_spatial_lag: lag.aic}
+```
+
+`rho` is clearly positive and the lag model has the lowest AIC of the three: it fits better than
+both the standard model and the spatial error model.
+
+```elixir
+DF.new(
+  feature: lag.name_x,
+  ols: ols.betas ++ [nil],
+  spatial_lag: lag.betas
+)
+```
+
+Most coefficients are smaller in the lag model: fireplace, patio, air conditioning, garage, age
+and lot size; bathrooms barely change. The standard model gave the house features credit for
+part of what is really the neighborhood: a house with a fireplace tends to be in a street of
+houses with fireplaces and high prices.
+
+## 5. Direct and indirect effects
+
+In a lag model a coefficient is not the whole story. Adding a fireplace raises the price of that
+house (the **direct** effect), and through `rho` it also raises a little the prices of the houses
+around it, which feed back on it (the **indirect** effect). `impacts` gives both, averaged over
+the sample:
+
+```elixir
+lag.impacts.simple
+|> DF.new()
+|> DF.select(["name", "direct", "indirect", "total"])
+```
+
+For an appraiser the direct effect is the value of the fireplace to this house. For a city
+planning an improvement program the **total** effect matters: improving houses raises the value
+of the whole street.
+
+## 6. Can we trust the tests?
+
+```elixir
+%{
+  breusch_pagan: ols.breusch_pagan,
+  koenker_bassett: ols.koenker_bassett,
+  jarque_bera: ols.jarque_bera
+}
+```
+
+The errors are strongly **heteroskedastic** (their spread is not the same for every house) and
+not normal. Maximum likelihood assumes both away, so its standard errors are too optimistic. The
+generalized moments estimator `Spatex.Regression.gm_lag/4` with White standard errors does not
+need either assumption:
+
+```elixir
+gm = Spatex.Regression.gm_lag(data["PRICE"], x, graph, robust: :white, name_y: "PRICE")
+
+DF.new(
+  feature: gm.name_x,
+  coefficient: gm.betas,
+  p_value: Enum.map(gm.z_stat, &elem(&1, 1))
+)
+```
+
+The neighborhood effect `W_PRICE` stays highly significant, as do bathrooms, fireplace, patio, air
+conditioning and lot size. **Age** and **garage** lose significance at 5%: with honest standard
+errors the data no longer clearly support a price for them. This is the kind of result an
+assessor should know before using a coefficient in a valuation.
+
+## 7. The city and the suburbs
+
+The sales are in Baltimore City and in Baltimore County. City houses are closer to the center,
+older and cheaper:
+
+```elixir
+area = data["CITCOU"] |> S.to_list() |> Enum.map(&if(&1 == 1.0, do: "county", else: "city"))
+data = DF.put(data, "area", area)
+
+data
+|> DF.group_by("area")
+|> DF.summarise(sales: count(col("PRICE")), mean_price: mean(col("PRICE")), mean_age: mean(col("AGE")))
+```
+
+`Spatex.Regression.ols_regimes/4` fits one set of coefficients per area and tests with Chow
+tests whether they differ.
+
+```elixir
+regimes = Spatex.Regression.ols_regimes(data["PRICE"], x, area, name_y: "PRICE")
+
+{statistic, p} = regimes.chow.joint
+IO.puts("Joint Chow test: #{Float.round(statistic, 1)}, p = #{p}")
+
+regimes.chow.regi
+|> Enum.map(fn {name, stat, p} -> %{coefficient: name, chow: stat, p_value: p} end)
+|> DF.new()
+```
+
+The joint test rejects one model for both areas. The features whose price differs most are
+**bathrooms**, the **garage** and **lot size**: a garage adds almost nothing to a city row house
+and several thousand dollars to a suburban one. A valuation model for the whole metropolitan area
+should at least let these coefficients vary by area.
+
+```elixir
+regimes.name_x
+|> Enum.zip(regimes.betas)
+|> Enum.filter(fn {name, _} -> String.ends_with?(name, ["NBATH", "GAR", "LOTSZ"]) end)
+|> Enum.map(fn {name, beta} -> %{coefficient: name, value: beta} end)
+|> DF.new()
+```
+
+## 8. Deliverables
+
+```elixir
+sales =
+  sales
+  |> GDF.put("residual_ols", S.from_list(ols.u))
+  |> GDF.put("predicted_lag", S.from_list(lag.predy))
+
+out_dir = Path.join(System.tmp_dir!(), "baltimore_case")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(sales, Path.join(out_dir, "sales.gpkg"))
+:ok = DF.to_csv(DF.new(lag.impacts.simple), Path.join(out_dir, "impacts.csv"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## What this showed
+
+* A standard hedonic model **overstates** what house features are worth when prices are spatially
+  dependent; the diagnostics (residual Moran, robust LM tests) detect it and say which spatial
+  model to use.
+* The **spatial lag** model separates the value of a feature to the house (direct effect) from
+  its spillover on the neighborhood (indirect effect).
+* With heteroskedastic errors, **robust GM** standard errors change which conclusions hold.
+* **Regimes** and Chow tests show where one model does not fit the whole region.
+
+The same approach applies to rents, land values, commercial lease prices or any price set partly
+by what is nearby.

@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["native/spatex_core", "native/spatex_native"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.91"
+license = "Apache-2.0"

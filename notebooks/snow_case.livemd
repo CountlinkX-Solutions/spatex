@@ -1,0 +1,270 @@
+# Use case: finding the source of an outbreak. John Snow's cholera map, London 1854
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`).
+
+## Setup
+
+> **Not run in CI.** GeoFrame is not on Hex yet, so CI does not fetch it.
+> Run this notebook locally with a GeoFrame checkout:
+>
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe livebook server notebooks/snow_case.livemd
+> ```
+>
+> or headlessly, to check that every cell works:
+>
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe elixir scripts/run_livemd.exs notebooks/snow_case.livemd
+> ```
+>
+> Spanish version: `notebooks/es/caso_colera_snow.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "set SPATEX_GEOFRAME_PATH to a GeoFrame checkout before starting this notebook"
+
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## The question
+
+In late August 1854 cholera killed hundreds of people in a few days in Soho, London. The accepted
+explanation was "bad air". The physician John Snow suspected the water, and mapped every death
+and every public water pump. It is the founding example of spatial epidemiology, and the
+questions it answers are the ones any outbreak investigation still asks:
+
+1. Are the cases **clustered**, or spread like the population?
+2. Where is the **center** of the outbreak, and is there a plausible source there?
+3. How many cases are **closer** to that source than to any other?
+
+The data are a digitization of Snow's map: the addresses with deaths, the 13 public pumps and the
+streets (distributed with PySAL).
+
+## 1. Load the map and use real meters
+
+The layers come in Web Mercator (EPSG:3857), which at London's latitude stretches distances by
+about 60%. GeoFrame reprojects them to the British National Grid (EPSG:27700), whose units are
+true meters. The reprojection includes the shift from WGS 84 to the British datum (OSGB36),
+about 125 meters here, as PROJ does.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+alias GeoFrame.GeoSeries, as: GS
+
+dir = Path.join([__DIR__, "data", "snow"])
+read = fn name ->
+  dir
+  |> Path.join(name)
+  |> GeoFrame.read_file!()
+  |> GDF.to_crs("EPSG:27700")
+end
+
+deaths = read.("SohoPeople.shp")
+pumps = read.("SohoWater.shp")
+streets = read.("Soho_Network.shp")
+
+{GDF.n_rows(deaths), GDF.n_rows(pumps), GDF.crs(deaths)}
+```
+
+`Count` is the number of deaths recorded at each address. 191 addresses have `Count` 0 and only
+two have 1, which suggests that 0 stands for a single death; read that way the map holds 583
+deaths, close to the 578 Snow reported. The analysis below works mainly with the **addresses**,
+which needs no assumption, and uses the death counts only where they add something.
+
+```elixir
+deaths_per_address = deaths |> GDF.pull("Count") |> S.to_list() |> Enum.map(&max(&1, 1))
+deaths = GDF.put(deaths, "deaths", S.from_list(deaths_per_address))
+
+%{addresses: GDF.n_rows(deaths), deaths_if_zero_means_one: Enum.sum(deaths_per_address)}
+```
+
+```elixir
+GeoFrame.Kino.deck(streets, opacity: 0.6, tooltip: [])
+```
+
+```elixir
+GeoFrame.Kino.deck(deaths,
+  color: {"deaths", :viridis},
+  radius: 4,
+  tooltip: ["deaths"]
+)
+```
+
+## 2. The center of the outbreak
+
+`Spatex.PointPats` measures where a set of points is centered and how spread out it is. We take
+the coordinates of every address and pump, and find the pump on Broad Street (Snow's suspect) by
+its historical location, 51.5133 N, 0.1367 W:
+
+```elixir
+coordinates = fn gdf ->
+  c = gdf |> GDF.geometry() |> GS.get_coordinates()
+  Enum.zip(S.to_list(c["x"]), S.to_list(c["y"]))
+end
+
+addresses = coordinates.(deaths)
+wells = coordinates.(pumps)
+
+distance = fn {x1, y1}, {x2, y2} -> :math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2) end
+
+historical =
+  DF.new(name: ["Broad Street pump"])
+  |> GDF.new(GS.from_wkt!(["POINT(-0.13667 51.51334)"], crs: "EPSG:4326"))
+  |> GDF.to_crs("EPSG:27700")
+  |> coordinates.()
+  |> hd()
+
+broad_index =
+  wells
+  |> Enum.with_index()
+  |> Enum.min_by(fn {w, _} -> distance.(w, historical) end)
+  |> elem(1)
+
+broad = Enum.at(wells, broad_index)
+
+%{broad_street_pump: broad_index, meters_from_historical_location: distance.(broad, historical)}
+```
+
+```elixir
+center = Spatex.PointPats.mean_center(addresses)
+weighted_center = Spatex.PointPats.weighted_mean_center(addresses, deaths_per_address)
+median = Spatex.PointPats.euclidean_median(addresses)
+
+DF.new(
+  pump: Enum.to_list(0..(length(wells) - 1)),
+  meters_to_weighted_center: Enum.map(wells, &distance.(&1, weighted_center))
+)
+|> DF.sort_by(asc: meters_to_weighted_center)
+|> DF.head(4)
+```
+
+The center of the deaths (weighted by deaths or not, and the median too) falls within about 30
+meters of the Broad Street pump. The next pump is about 200 meters from it, and the pumps are 80
+to 200 meters apart, so this is not a near-tie: the outbreak is centered on one pump.
+
+```elixir
+%{
+  center_to_broad_street: distance.(center, broad),
+  weighted_center_to_broad_street: distance.(weighted_center, broad),
+  median_to_broad_street: distance.(median, broad),
+  standard_distance: Spatex.PointPats.std_distance(addresses)
+}
+```
+
+The standard distance, about 150 meters, is the typical distance of an address from the center:
+the outbreak covered only a few blocks.
+
+## 3. Closest pump
+
+Snow's decisive argument was to compare, for each death, the pump that was closest. We assign
+every address to its nearest pump (the areas this creates are the Voronoi cells of the pumps):
+
+```elixir
+nearest =
+  Enum.map(addresses, fn a ->
+    wells |> Enum.with_index() |> Enum.min_by(fn {w, _} -> distance.(a, w) end) |> elem(1)
+  end)
+
+deaths = GDF.put(deaths, "nearest_pump", S.from_list(Enum.map(nearest, &"pump #{&1}")))
+
+DF.new(pump: nearest, deaths: deaths_per_address)
+|> DF.group_by("pump")
+|> DF.summarise(addresses: count(deaths), deaths: sum(deaths))
+|> DF.sort_by(desc: addresses)
+|> DF.head(5)
+```
+
+```elixir
+GeoFrame.Kino.deck(deaths,
+  color: {"nearest_pump", :categorical},
+  radius: 4,
+  tooltip: ["deaths", "nearest_pump"]
+)
+```
+
+More than half of the addresses, and more than 60% of the deaths, are closer to the Broad Street
+pump than to any of the other twelve; the next pump gathers less than a quarter as many. Half of the
+addresses are within 130 meters of it:
+
+```elixir
+to_broad = addresses |> Enum.map(&distance.(&1, broad)) |> Enum.sort()
+quantile = fn q -> Enum.at(to_broad, round(q * (length(to_broad) - 1))) end
+
+%{quarter_within: quantile.(0.25), half_within: quantile.(0.5), all_within: List.last(to_broad)}
+```
+
+## 4. Clustered, or spread like the population?
+
+Ripley's functions compare the pattern with complete spatial randomness (CSR). `l_test/2`
+simulates 999 random patterns in the same area; if the observed L function is above the envelope
+of the simulations, the points have more neighbors at that distance than chance gives.
+
+```elixir
+l = Spatex.PointPats.l_test(addresses, permutations: 999, seed: 1854)
+
+DF.new(
+  distance_m: l.support,
+  observed: l.statistic,
+  envelope_low: l.envelope_low,
+  envelope_high: l.envelope_high,
+  p_value: l.pvalue
+)
+```
+
+From about 11 meters on, the observed L is above the envelope and the p-value is the smallest
+possible with 999 simulations. The nearest-neighbor function G tells the same story:
+
+```elixir
+g = Spatex.PointPats.g_test(addresses, permutations: 999, seed: 1854)
+DF.new(distance_m: g.support, observed: g.statistic, envelope_high: g.envelope_high)
+```
+
+A quadrat count gives a simple, reportable number. The area is split into a 3 x 3 grid and the
+counts are compared with an even spread:
+
+```elixir
+quadrats = Spatex.PointPats.quadrat_test(addresses, permutations: 999, seed: 1854)
+
+%{counts_by_cell: quadrats.counts, chi2: quadrats.chi2, p_value: quadrats.chi2_pvalue}
+```
+
+The central cell holds about a third of all addresses, three times its share.
+
+These tests need care: people did not live uniformly over Soho either, they lived along the
+streets, so a test against CSR will reject randomness for almost any set of addresses. They show
+that the deaths are concentrated, not why. The evidence for the water is **where** they
+concentrate: on one pump, with the other pumps at the edge of the outbreak.
+
+## 5. Deliverables
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "snow_case")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(deaths, Path.join(out_dir, "deaths_with_nearest_pump.gpkg"))
+:ok = GeoFrame.write_file(pumps, Path.join(out_dir, "pumps.gpkg"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## What this showed
+
+* **Centrography** (mean center, weighted center, Euclidean median, standard distance) locates an
+  outbreak and measures its size.
+* Assigning cases to the **nearest candidate source** is a simple, powerful test of a hypothesis.
+* **Ripley's G, K and L** with simulation envelopes and the **quadrat test** measure clustering,
+  with the caveat that the population at risk is rarely spread at random.
+
+Snow persuaded the parish to remove the handle of the Broad Street pump on 8 September 1854. The
+same analysis applies to any set of events with candidate sources: cases of a disease around
+cooling towers, complaints around a factory, accidents around a junction, failures around a
+supplier.

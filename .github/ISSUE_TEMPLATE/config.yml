@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/CountlinkX-Solutions/spatex/security
+    about: Report vulnerabilities privately ("Report a vulnerability"), not as an issue.
+  - name: Documentation
+    url: https://hexdocs.pm/spatex
+    about: API reference, guides and notebooks.

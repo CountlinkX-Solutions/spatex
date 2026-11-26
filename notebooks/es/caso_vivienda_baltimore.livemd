@@ -1,0 +1,310 @@
+# Caso de uso: ¿cuánto vale una casa, y cuánto su barrio? Baltimore, 1978
+
+Ejecuta este notebook desde una copia git de Spatex: instala Spatex desde esa copia (`path:`).
+
+## Preparación
+
+> **No se ejecuta en CI.** GeoFrame aún no está en Hex, así que CI no lo descarga. Ejecuta
+> este notebook en local con una copia de GeoFrame:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe livebook server notebooks/es/caso_vivienda_baltimore.livemd
+> ```
+> 
+> o sin interfaz, para comprobar que todas las celdas funcionan:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe elixir scripts/run_livemd.exs notebooks/es/caso_vivienda_baltimore.livemd
+> ```
+> 
+> Versión en inglés: `notebooks/baltimore_case.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "define SPATEX_GEOFRAME_PATH con la ruta a una copia de GeoFrame antes de abrir este notebook"
+
+Mix.install([
+  {:spatex, path: Path.join([__DIR__, "..", ".."])},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## La pregunta
+
+Un tasador, una oficina de catastro o un comprador quiere saber cuánto vale cada característica
+de una casa: una chimenea, un garaje, un baño más. La herramienta habitual es una **regresión
+hedónica**: el precio en función de las características de la casa. Pero una casa también se
+vende con su ubicación, y las casas cercanas a casas caras suelen ser caras. Si el modelo no lo
+tiene en cuenta:
+
+1. ¿Siguen siendo correctas sus estimaciones de lo que vale una chimenea?
+2. ¿Qué parte del precio es la casa y qué parte el barrio?
+3. ¿Podemos fiarnos de las pruebas de significación?
+4. ¿Sirve el mismo modelo en la ciudad y en las afueras?
+
+Los datos son reales: 211 ventas de viviendas en Baltimore en 1978 con sus características y su
+ubicación (Dubin, 1992, distribuidos con PySAL). Los precios están en miles de dólares.
+
+## 1. Cargar las ventas
+
+Cada venta es un punto. GeoFrame lee el Shapefile; las coordenadas están en un sistema plano
+local, así que las distancias entre puntos tienen sentido.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+alias GeoFrame.GeoSeries, as: GS
+
+sales =
+  [__DIR__, "..", "data", "baltimore", "baltim.shp"]
+  |> Path.join()
+  |> GeoFrame.read_file!()
+
+features = ~w(NROOM NBATH PATIO FIREPL AC GAR AGE LOTSZ SQFT)
+data = GDF.data(sales)
+
+# Las coordenadas no tienen CRS. Coinciden con el State Plane de Maryland (NAD27, EPSG:26785) en
+# miles de pies de EE. UU., lo que sitúa las ventas en Baltimore; los mapas las dibujan así, el
+# análisis conserva las unidades originales.
+on_map = fn frame ->
+  geometry = GDF.geometry(frame)
+  xs = geometry |> GS.x() |> S.multiply(1000)
+  ys = geometry |> GS.y() |> S.multiply(1000)
+  GDF.new(GDF.data(frame), GS.from_xy(xs, ys, crs: "EPSG:26785"))
+end
+
+{GDF.n_rows(sales), S.median(data["PRICE"])}
+```
+
+Las características son: habitaciones (`NROOM`), baños (`NBATH`), patio, chimenea, aire
+acondicionado y garaje (`PATIO`, `FIREPL`, `AC`, `GAR`, 1 si los tiene), antigüedad en años
+(`AGE`), tamaño de la parcela (`LOTSZ`) y superficie habitable (`SQFT`).
+
+```elixir
+GeoFrame.Kino.deck(on_map.(sales),
+  color: {"PRICE", :viridis},
+  radius: 6,
+  tooltip: ["PRICE", "NROOM", "NBATH", "AGE", "SQFT"]
+)
+```
+
+## 2. ¿Las casas vecinas tienen precios parecidos?
+
+Los puntos no comparten fronteras, así que los vecinos son las **k ventas más cercanas**; seis es
+una elección habitual para una muestra de este tamaño. Estandarizar el grafo por filas hace que
+el rezago espacial sea el precio medio de los seis vecinos.
+
+```elixir
+graph = sales |> Spatex.GeoFrame.graph(:knn, k: 6) |> Spatex.Graph.transform(:r)
+moran = Spatex.ESDA.moran(data["PRICE"], graph, permutations: 999, seed: 1978)
+
+%{moran_i: moran.i, p_sim: moran.p_sim}
+```
+
+Los precios están muy agrupados. Eso por sí solo no invalida un modelo hedónico: las casas vecinas
+pueden simplemente tener características parecidas. Lo que importa es si los **residuos** siguen
+agrupados una vez incluidas las características.
+
+## 3. El modelo estándar y sus diagnósticos espaciales
+
+```elixir
+x = DF.select(data, features)
+
+ols =
+  Spatex.Regression.ols(data["PRICE"], x,
+    name_y: "PRICE",
+    graph: graph,
+    spat_diag: true,
+    moran: true
+  )
+
+IO.puts(Spatex.Regression.summary(ols))
+```
+
+A primera vista el modelo explica el 65% de la variación y una chimenea añade unos 11 mil dólares.
+Pero mira el final del resumen:
+
+```elixir
+%{
+  moran_residuos: ols.moran_res,
+  lm_error: ols.lm_error,
+  lm_lag: ols.lm_lag,
+  lm_error_robusto: ols.rlm_error,
+  lm_lag_robusto: ols.rlm_lag
+}
+```
+
+Los residuos están agrupados, así que al modelo le falta algo espacial. Las pruebas robustas de
+multiplicadores de Lagrange dicen qué: el **LM lag robusto** es muy significativo y el **LM error
+robusto** no. Es la señal clásica de un modelo de **rezago espacial**, en el que el precio de una
+casa depende de los precios de su alrededor: compradores y tasadores miran por cuánto se
+vendieron las casas cercanas.
+
+Un resultado que dependiera de la elección arbitraria de seis vecinos sería frágil, así que
+probamos con cuatro y con ocho:
+
+```elixir
+for k <- [4, 6, 8] do
+  g = sales |> Spatex.GeoFrame.graph(:knn, k: k) |> Spatex.Graph.transform(:r)
+  o = Spatex.Regression.ols(data["PRICE"], x, graph: g, spat_diag: true)
+  %{k: k, p_lm_lag_robusto: elem(o.rlm_lag, 1), p_lm_error_robusto: elem(o.rlm_error, 1)}
+end
+```
+
+La conclusión se mantiene en todos los casos.
+
+## 4. El modelo de rezago espacial
+
+`Spatex.Regression.ml_lag/4` añade como regresor el precio medio de los vecinos, `W_PRICE`, y
+estima su peso `rho` por máxima verosimilitud.
+
+```elixir
+lag = Spatex.Regression.ml_lag(data["PRICE"], x, graph, name_y: "PRICE")
+error = Spatex.Regression.ml_error(data["PRICE"], x, graph, name_y: "PRICE")
+
+%{rho: lag.rho, aic_ols: ols.aic, aic_error_espacial: error.aic, aic_rezago_espacial: lag.aic}
+```
+
+`rho` es claramente positivo y el modelo de rezago tiene el AIC más bajo de los tres: ajusta mejor
+que el modelo estándar y que el modelo de error espacial.
+
+```elixir
+DF.new(
+  feature: lag.name_x,
+  ols: ols.betas ++ [nil],
+  spatial_lag: lag.betas
+)
+```
+
+La mayoría de los coeficientes son menores en el modelo de rezago: chimenea, patio, aire
+acondicionado, garaje, antigüedad y tamaño de la parcela; el de los baños apenas cambia. El
+modelo estándar atribuía a las características de la casa parte de lo que en realidad es el
+barrio: una casa con chimenea suele estar en una calle de casas con chimenea y precios altos.
+
+## 5. Efectos directos e indirectos
+
+En un modelo de rezago, un coeficiente no lo cuenta todo. Añadir una chimenea sube el precio de esa
+casa (el efecto **directo**) y, a través de `rho`, sube también un poco el de las casas de
+alrededor, que a su vez repercute en ella (el efecto **indirecto**). `impacts` da los dos,
+promediados sobre la muestra:
+
+```elixir
+lag.impacts.simple
+|> DF.new()
+|> DF.select(["name", "direct", "indirect", "total"])
+```
+
+Para un tasador, el efecto directo es lo que vale la chimenea para esta casa. Para un ayuntamiento
+que planea un programa de mejoras importa el efecto **total**: mejorar casas revaloriza toda la
+calle.
+
+## 6. ¿Podemos fiarnos de las pruebas?
+
+```elixir
+%{
+  breusch_pagan: ols.breusch_pagan,
+  koenker_bassett: ols.koenker_bassett,
+  jarque_bera: ols.jarque_bera
+}
+```
+
+Los errores son claramente **heterocedásticos** (su dispersión no es la misma para todas las
+casas) y no son normales. La máxima verosimilitud supone lo contrario, así que sus errores
+estándar son demasiado optimistas. El estimador de momentos generalizados
+`Spatex.Regression.gm_lag/4` con errores estándar de White no necesita ninguno de los dos
+supuestos:
+
+```elixir
+gm = Spatex.Regression.gm_lag(data["PRICE"], x, graph, robust: :white, name_y: "PRICE")
+
+DF.new(
+  feature: gm.name_x,
+  coefficient: gm.betas,
+  p_value: Enum.map(gm.z_stat, &elem(&1, 1))
+)
+```
+
+El efecto del barrio, `W_PRICE`, sigue siendo muy significativo, igual que los baños, la
+chimenea, el patio, el aire acondicionado y la parcela. La **antigüedad** y el **garaje** dejan de
+ser significativos al 5%: con errores estándar honestos, los datos ya no respaldan con claridad un
+precio para ellos. Es el tipo de resultado que un tasador debería conocer antes de usar un
+coeficiente en una valoración.
+
+## 7. La ciudad y las afueras
+
+Las ventas están en la ciudad de Baltimore y en el condado de Baltimore. Las casas de la ciudad
+están más cerca del centro, son más antiguas y más baratas:
+
+```elixir
+area = data["CITCOU"] |> S.to_list() |> Enum.map(&if(&1 == 1.0, do: "county", else: "city"))
+data = DF.put(data, "area", area)
+
+data
+|> DF.group_by("area")
+|> DF.summarise(sales: count(col("PRICE")), mean_price: mean(col("PRICE")), mean_age: mean(col("AGE")))
+```
+
+`Spatex.Regression.ols_regimes/4` ajusta un juego de coeficientes por zona y comprueba con pruebas
+de Chow si son distintos.
+
+```elixir
+regimes = Spatex.Regression.ols_regimes(data["PRICE"], x, area, name_y: "PRICE")
+
+{statistic, p} = regimes.chow.joint
+IO.puts("Prueba de Chow conjunta: #{Float.round(statistic, 1)}, p = #{p}")
+
+regimes.chow.regi
+|> Enum.map(fn {name, stat, p} -> %{coeficiente: name, chow: stat, p_valor: p} end)
+|> DF.new()
+```
+
+La prueba conjunta rechaza un único modelo para las dos zonas. Las características cuyo precio más
+difiere son los **baños**, el **garaje** y el **tamaño de la parcela**: un garaje no añade casi
+nada a una casa adosada de la ciudad y varios miles de dólares a una de las afueras. Un modelo de
+valoración para toda el área metropolitana debería, como mínimo, dejar que estos coeficientes
+varíen por zona.
+
+```elixir
+regimes.name_x
+|> Enum.zip(regimes.betas)
+|> Enum.filter(fn {name, _} -> String.ends_with?(name, ["NBATH", "GAR", "LOTSZ"]) end)
+|> Enum.map(fn {name, beta} -> %{coeficiente: name, valor: beta} end)
+|> DF.new()
+```
+
+## 8. Entregables
+
+```elixir
+sales =
+  sales
+  |> GDF.put("residual_ols", S.from_list(ols.u))
+  |> GDF.put("predicted_lag", S.from_list(lag.predy))
+
+out_dir = Path.join(System.tmp_dir!(), "caso_baltimore")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(sales, Path.join(out_dir, "ventas.gpkg"))
+:ok = DF.to_csv(DF.new(lag.impacts.simple), Path.join(out_dir, "efectos.csv"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## Lo que hemos visto
+
+* Un modelo hedónico estándar **sobrevalora** lo que valen las características de una casa cuando
+  los precios dependen del espacio; los diagnósticos (Moran de los residuos, pruebas LM robustas)
+  lo detectan y dicen qué modelo espacial usar.
+* El modelo de **rezago espacial** separa el valor de una característica para la casa (efecto
+  directo) de su contagio al barrio (efecto indirecto).
+* Con errores heterocedásticos, los errores estándar **GM robustos** cambian qué conclusiones se
+  sostienen.
+* Los **regímenes** y las pruebas de Chow muestran dónde un solo modelo no sirve para toda la
+  región.
+
+El mismo enfoque sirve para alquileres, valor del suelo, rentas de locales comerciales o cualquier
+precio que dependa en parte de lo que hay cerca.

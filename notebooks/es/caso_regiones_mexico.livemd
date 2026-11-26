@@ -1,0 +1,248 @@
+# Caso de uso: dibujar el mapa y las regiones. Estados de México, 1940-2000
+
+Ejecuta este notebook desde una copia git de Spatex: instala Spatex desde esa copia (`path:`).
+
+## Preparación
+
+> **No se ejecuta en CI.** GeoFrame aún no está en Hex, así que CI no lo descarga. Ejecuta
+> este notebook en local con una copia de GeoFrame:
+>
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe livebook server notebooks/es/caso_regiones_mexico.livemd
+> ```
+>
+> o sin interfaz, para comprobar que todas las celdas funcionan:
+>
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe elixir scripts/run_livemd.exs notebooks/es/caso_regiones_mexico.livemd
+> ```
+>
+> Versión en inglés: `notebooks/mexico_case.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "define SPATEX_GEOFRAME_PATH con la ruta a una copia de GeoFrame antes de abrir este notebook"
+
+Mix.install([
+  {:spatex, path: Path.join([__DIR__, "..", ".."])},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## La pregunta
+
+Un ministerio de planificación prepara un informe sobre desarrollo regional. Necesita dos cosas
+que parecen técnicas pero cambian el mensaje del informe:
+
+1. Un **mapa** de la renta por estado. Cómo se cortan los valores en colores decide lo que ve el
+   lector.
+2. Un conjunto de **regiones** para organizar la política. ¿Las regiones oficiales agrupan estados
+   que comparten de verdad una situación económica, o describirían mejor el país otras regiones?
+
+Los datos son reales: el PIB per cápita de los 32 estados de México cada diez años de 1940 a 2000,
+con varios esquemas regionales usados en la literatura, entre ellos las regiones del INEGI, el
+instituto nacional de estadística (Rey y Sastre Gutiérrez, 2010, distribuidos con PySAL).
+
+## 1. Cargar los estados
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+states =
+  [__DIR__, "..", "data", "mexico", "mexicojoin.shp"]
+  |> Path.join()
+  |> GeoFrame.read_file!()
+
+data = GDF.data(states)
+years = ~w(1940 1950 1960 1970 1980 1990 2000)
+income = Enum.map(years, &S.to_list(data["PCGDP" <> &1]))
+
+{GDF.n_rows(states), S.min(data["PCGDP2000"]), S.max(data["PCGDP2000"])}
+```
+
+En 2000 el estado más rico tenía más de seis veces el PIB per cápita del más pobre.
+
+## 2. Los mismos datos, tres mapas
+
+`Spatex.Classify` implementa los esquemas de clasificación de mapclassify. Con los mismos valores
+de 2000 y cinco clases, tres elecciones habituales:
+
+```elixir
+y = data["PCGDP2000"]
+
+schemes =
+  for scheme <- [:quantiles, :equal_interval, :fisher_jenks] do
+    c = Spatex.Classify.classify(y, scheme, k: 5)
+    %{scheme: Atom.to_string(scheme), upper_bounds: Enum.map(c.bins, &round/1), states_per_class: c.counts, gadf: c.gadf}
+  end
+
+DF.new(schemes)
+```
+
+* Los **cuantiles** ponen el mismo número de estados en cada clase. El mapa parece equilibrado,
+  pero estados con rentas muy distintas acaban con el mismo color y otros muy parecidos quedan
+  separados.
+* Los **intervalos iguales** cortan el rango en pasos iguales. Con un estado muy rico, 17 de los
+  32 estados caen en la clase más baja: el mapa dice «casi todos son pobres».
+* **Fisher-Jenks** elige los cortes que hacen las clases lo más homogéneas posible.
+
+La **bondad del ajuste de la desviación absoluta** (GADF, 1 es un ajuste perfecto) mide lo bien
+que cada clasificación mantiene juntos los estados con valores parecidos. Fisher-Jenks es el mejor
+de los tres. `k_classifiers/2` hace la pregunta inversa: cuántas clases necesita cada método para
+llegar a un GADF de 0,8.
+
+```elixir
+k_classifiers = Spatex.Classify.k_classifiers(y)
+
+k_classifiers.results
+|> Enum.map(fn {method, {k, _classification, gadf}} -> %{method: Atom.to_string(method), classes_needed: k, gadf: gadf} end)
+|> DF.new()
+|> DF.sort_by(asc: classes_needed)
+```
+
+Fisher-Jenks llega al objetivo con cinco clases; los cuantiles necesitan nueve. Para el informe,
+cinco clases de Fisher-Jenks dan una leyenda legible que no distorsiona los datos:
+
+```elixir
+states = Spatex.GeoFrame.put_results(states, Spatex.Classify.fisher_jenks(y, k: 5), prefix: "income_class_")
+
+GeoFrame.Kino.deck(states,
+  color: {"income_class_yb", :viridis},
+  opacity: 0.85,
+  tooltip: ["NAME", "PCGDP2000", "income_class_yb"]
+)
+```
+
+## 3. ¿Qué tan buenas son las regiones oficiales?
+
+Un esquema regional es útil para la política económica si los estados de una misma región se
+parecen y las regiones se diferencian entre sí. El índice de Theil lo mide directamente: la
+**proporción entre regiones** es la parte de la desigualdad entre estados que explican las
+regiones. `Spatex.Inequality.theil_d/3` la da para todas las décadas a la vez.
+
+```elixir
+rows = Enum.zip_with(income, & &1)
+
+between_share = fn labels ->
+  t = Spatex.Inequality.theil_d(rows, labels)
+  Enum.zip_with(t.bg, t.t, &(&1 / &2))
+end
+
+official = ~w(INEGI INEGI2 HANSON98 HANSON03 ESQUIVEL99)
+
+official
+|> Enum.map(fn scheme ->
+  labels = S.to_list(data[scheme])
+  shares = between_share.(labels)
+  %{scheme: scheme, regions: length(Enum.uniq(labels)), share_1970: Enum.at(shares, 3), share_2000: List.last(shares)}
+end)
+|> DF.new()
+```
+
+Las cinco regiones del INEGI, y su variante `INEGI2`, explican menos de una quinta parte de la
+desigualdad entre estados en 2000. Se dibujaron con fines estadísticos y administrativos, no para
+agrupar estados por renta, y se nota. Otros esquemas de la literatura, con cinco a siete regiones,
+explican entre un tercio y la mitad.
+
+## 4. Regiones construidas a partir de los datos
+
+`Spatex.Region` construye regiones contiguas a partir de atributos. Aquí los atributos son los
+logaritmos de la renta de las siete décadas, estandarizados, así que una región agrupa estados
+vecinos con una **trayectoria** parecida desde 1940. Pedimos cinco regiones, tantas como las del
+INEGI:
+
+```elixir
+graph = Spatex.GeoFrame.graph(states, :queen)
+
+attrs = income |> Enum.map(fn decade -> Enum.map(decade, &:math.log/1) end) |> Spatex.Region.standardize()
+
+regions = %{
+  "AZP" => Spatex.Region.azp(attrs, graph, n_clusters: 5, seed: 1).labels,
+  "SKATER (min. 3 estados)" => Spatex.Region.skater(attrs, graph, n_clusters: 5, floor: 3).labels,
+  "Ward (espacial)" => Spatex.Region.ward_spatial(attrs, graph, n_clusters: 5).labels,
+  "INEGI" => S.to_list(data["INEGI"])
+}
+
+regions
+|> Enum.map(fn {name, labels} ->
+  sizes = labels |> Enum.frequencies() |> Map.values() |> Enum.sort()
+
+  %{
+    scheme: name,
+    states_per_region: sizes,
+    between_share_2000: List.last(between_share.(labels)),
+    within_region_dissimilarity: Spatex.Region.objective(attrs, labels, kind: :center, metric: :sqeuclidean)
+  }
+end)
+|> DF.new()
+|> DF.sort_by(desc: between_share_2000)
+```
+
+Con el mismo número de regiones, los esquemas construidos a partir de los datos explican entre dos
+veces y media y cuatro veces más desigualdad que el del INEGI, y sus estados se parecen mucho más
+entre sí (menor disimilitud). Los algoritmos difieren en algo que importa para la política:
+
+* **Ward** da la proporción más alta pero deja a Ciudad de México (Distrito Federal) como región
+  propia: correcto desde el punto de vista estadístico, incómodo desde el administrativo.
+* **SKATER** con `floor: 3` prohíbe regiones de menos de tres estados, pero deja una región grande
+  de 16 estados.
+* **AZP** produce las regiones más equilibradas, de cinco a ocho estados cada una, con una
+  proporción menor que las otras dos pero mucho más alta que la del INEGI.
+
+```elixir
+states =
+  states
+  |> GDF.put("region_azp", S.from_list(Enum.map(regions["AZP"], &"región #{&1}")))
+  |> GDF.put("region_inegi", S.from_list(Enum.map(regions["INEGI"], &"INEGI #{round(&1)}")))
+
+GeoFrame.Kino.deck(states,
+  color: {"region_azp", :categorical},
+  opacity: 0.85,
+  tooltip: ["NAME", "PCGDP2000", "region_azp", "region_inegi"]
+)
+```
+
+```elixir
+regions["AZP"]
+|> Enum.zip(S.to_list(data["NAME"]))
+|> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+|> Enum.map(fn {region, names} -> %{region: region, states: Enum.join(names, ", ")} end)
+|> DF.new()
+```
+
+Las regiones de AZP se leen como un mapa de la economía de México: los estados de la frontera
+norte, el centro-occidente, la capital y sus vecinos, el sur más pobre, y el Golfo con la
+península de Yucatán.
+
+Una advertencia: estas regiones se ajustaron a estas mismas rentas, así que es de esperar que las
+expliquen mejor que un esquema dibujado con otros fines. Son un buen punto de partida para una
+regionalización económica, que habría que comprobar con otros indicadores antes de adoptarla.
+
+## 5. Entregables
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "caso_mexico")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(states, Path.join(out_dir, "estados_clases_regiones.gpkg"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## Lo que hemos visto
+
+* El **esquema de clasificación** de un mapa de coropletas cambia su mensaje; GADF y
+  `k_classifiers/2` permiten elegirlo con evidencia en vez de por costumbre.
+* La **proporción de Theil entre regiones** puntúa cualquier esquema regional frente a los datos.
+* **AZP, SKATER y Ward espacial** dibujan regiones contiguas a partir de datos, con opciones
+  (`floor`, el número de regiones) que recogen restricciones prácticas.
+
+Las mismas herramientas sirven para diseñar zonas comerciales, distritos escolares o sanitarios,
+circunscripciones electorales (con un umbral de población; ver Max-p en el notebook de Carolina del
+Norte), o cualquier mapa que tenga que ser a la vez exacto y legible.

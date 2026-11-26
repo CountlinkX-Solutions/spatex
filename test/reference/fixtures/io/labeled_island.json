@@ -1,0 +1,26 @@
+{
+ "description": "String ids and an island node.",
+ "focal": [0, 0, 1, 2, 2, 3],
+ "gal_roundtrip": {
+  "focal": [0, 0, 1, 2, 2, 3],
+  "ids": ["a", "b", "c", "d"],
+  "neighbor": [1, 2, 0, 0, 1, 3],
+  "weight": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0]
+ },
+ "gwt_roundtrip": {
+  "focal": [0, 0, 1, 2, 2, 3],
+  "ids": ["a", "b", "c", "d"],
+  "neighbor": [1, 2, 0, 0, 1, 3],
+  "weight": [1.0, 0.5, 0.25, 2.0, 0.125, 0.0]
+ },
+ "ids": ["a", "b", "c", "d"],
+ "isolates": [3],
+ "meta": {
+  "esda": "2.10.0",
+  "libpysal": "4.15.1",
+  "numpy": "2.5.4"
+ },
+ "name": "labeled_island",
+ "neighbor": [1, 2, 0, 0, 1, 3],
+ "weight": [1.0, 0.5, 0.25, 2.0, 0.125, 0.0]
+}

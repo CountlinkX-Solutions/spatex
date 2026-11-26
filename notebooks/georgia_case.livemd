@@ -1,0 +1,274 @@
+# Use case: one state, many relationships. Education in Georgia, 1990
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`).
+
+## Setup
+
+> **Not run in CI.** GeoFrame is not on Hex yet, so CI does not fetch it.
+> Run this notebook locally with a GeoFrame checkout:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe livebook server notebooks/georgia_case.livemd
+> ```
+> 
+> or headlessly, to check that every cell works:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/path/to/geoframe elixir scripts/run_livemd.exs notebooks/georgia_case.livemd
+> ```
+> 
+> Spanish version: `notebooks/es/caso_educacion_georgia.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "set SPATEX_GEOFRAME_PATH to a GeoFrame checkout before starting this notebook"
+
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## The question
+
+A state education board wants to raise the share of adults with a college degree. Before
+designing programs it asks what goes with a high share: is it immigration, which brings
+graduates, is it urbanization, is it the racial make-up of the county? A single regression
+gives one answer for the whole state. But Atlanta and the farm counties of the south are very
+different places, and the same factor may matter a lot in one and little in the other:
+
+1. What does a single, state-wide model say, and is it enough?
+2. Do the relationships **change across the state**, and where are they strongest?
+3. Does each factor work at the **same geographic scale**, or are some local and others
+   state-wide?
+
+The data are real: the 159 counties of Georgia in the 1990 census (Fotheringham, Brunsdon and
+Charlton, 2002; the example of PySAL's `mgwr`).
+
+## 1. Load the counties
+
+The Shapefile is in UTM (meters), so distances between county centroids are meaningful. The
+centroids are also stored as the `X` and `Y` columns, which GWR uses as the location of each
+county.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+counties =
+  [__DIR__, "data", "georgia", "G_utm.shp"]
+  |> Path.join()
+  |> GeoFrame.read_file!()
+
+data = GDF.data(counties)
+points = Enum.zip(S.to_list(data["X"]), S.to_list(data["Y"]))
+
+y = data["PctBach"]
+factors = ~w(PctFB PctBlack PctRural)
+x = Enum.map(factors, &data[&1])
+
+{GDF.n_rows(counties), S.min(y), S.median(y), S.max(y)}
+```
+
+`PctBach` is the percentage of adults with a bachelor's degree; it goes from about 4% to 37%.
+The factors are the percentages of foreign-born (`PctFB`), Black (`PctBlack`) and rural
+(`PctRural`) population.
+
+```elixir
+GeoFrame.Kino.deck(counties,
+  color: {"PctBach", :viridis},
+  opacity: 0.85,
+  tooltip: ["PctBach", "PctFB", "PctBlack", "PctRural"]
+)
+```
+
+## 2. One model for the whole state
+
+```elixir
+graph = counties |> Spatex.GeoFrame.graph(:queen) |> Spatex.Graph.transform(:r)
+
+ols =
+  Spatex.Regression.ols(y, DF.select(data, factors),
+    name_y: "PctBach",
+    graph: graph,
+    spat_diag: true,
+    moran: true
+  )
+
+IO.puts(Spatex.Regression.summary(ols))
+```
+
+The global model says: more foreign-born residents go with more graduates, more rural
+population with fewer, and the share of Black population has no clear effect. It explains about
+55% of the variation. But the **Moran's I of the residuals** is positive and significant: the
+model makes the same kind of error in neighboring counties, a sign that one set of coefficients
+does not fit the whole state.
+
+```elixir
+%{r2: ols.r2, aic: ols.aic, moran_residuals: ols.moran_res}
+```
+
+## 3. Geographically weighted regression
+
+GWR fits one regression **per county**, weighting the other counties by how close they are. The
+key choice is the **bandwidth**, how many neighbors each local regression uses.
+`Spatex.GWR.select_bandwidth/4` searches it by minimizing AICc, so the data decide how local
+the model should be.
+
+```elixir
+bandwidth = Spatex.GWR.select_bandwidth(points, y, x)
+gwr = Spatex.GWR.fit(points, y, x, bw: bandwidth.bw)
+
+%{
+  nearest_neighbors_per_regression: bandwidth.bw,
+  r2_global_model: ols.r2,
+  r2_gwr: gwr.r2,
+  aic_global_model: ols.aic,
+  aic_gwr: gwr.aic
+}
+```
+
+Each local regression uses the 117 nearest counties (with weights that fall to zero at the
+117th). The fit improves clearly: higher R-squared and a lower AIC, which already penalizes the
+extra flexibility. And the spatial pattern of the errors disappears:
+
+```elixir
+moran_gwr = Spatex.ESDA.moran(gwr.resid, graph, permutations: 999, seed: 1990)
+%{moran_residuals_gwr: moran_gwr.i, p_sim: moran_gwr.p_sim}
+```
+
+## 4. Where each factor matters
+
+Every county now has its own coefficients. Their range already tells the story:
+
+```elixir
+names = ["Intercept" | factors]
+by_factor = gwr.params |> Enum.zip_with(& &1)
+
+names
+|> Enum.zip(by_factor)
+|> Enum.map(fn {name, values} -> %{factor: name, min: Enum.min(values), max: Enum.max(values)} end)
+|> DF.new()
+```
+
+The coefficient of foreign-born population goes from about 0.6 to 3.4: one more point of
+foreign-born residents goes with 0.6 more points of graduates in some counties and 3.4 in
+others. The rural coefficient is negative everywhere and changes little.
+
+With 159 local regressions, some t-values would look significant by chance. `filter_tvals/2`
+applies mgwr's correction for multiple testing and sets non-significant values to zero:
+
+```elixir
+significant = gwr |> Spatex.GWR.filter_tvals() |> Enum.zip_with(& &1)
+
+names
+|> Enum.zip(significant)
+|> Enum.map(fn {name, t} ->
+  %{
+    factor: name,
+    significant_counties: Enum.count(t, &(&1 != 0.0)),
+    positive: Enum.count(t, &(&1 > 0)),
+    negative: Enum.count(t, &(&1 < 0))
+  }
+end)
+|> DF.new()
+```
+
+```elixir
+fb_t = Enum.at(significant, 1)
+fb = Enum.at(by_factor, 1)
+
+counties =
+  counties
+  |> GDF.put("coef_foreign_born", S.from_list(fb))
+  |> GDF.put(
+    "coef_foreign_born_significant",
+    S.from_list(Enum.zip_with(fb, fb_t, fn b, t -> if t != 0.0, do: b, else: nil end))
+  )
+
+GeoFrame.Kino.deck(counties,
+  color: {"coef_foreign_born_significant", :viridis},
+  opacity: 0.85,
+  tooltip: ["PctBach", "PctFB", "coef_foreign_born", "coef_foreign_born_significant"]
+)
+```
+
+The map shows a clear north-south gradient: the link between immigration and education is
+strongest in the north, around Atlanta, and weak in the south, where it is not significant in a
+group of counties (no color). The correlation of the local coefficient with the north coordinate
+measures it:
+
+```elixir
+correlation = fn a, b ->
+  n = length(a)
+  {ma, mb} = {Enum.sum(a) / n, Enum.sum(b) / n}
+  cov = Enum.zip_with(a, b, &((&1 - ma) * (&2 - mb))) |> Enum.sum()
+  var = fn v, m -> v |> Enum.map(&((&1 - m) ** 2)) |> Enum.sum() end
+  cov / :math.sqrt(var.(a, ma) * var.(b, mb))
+end
+
+%{correlation_with_north: correlation.(fb, S.to_list(data["Y"]))}
+```
+
+For the board this means that a policy built on attracting skilled immigrants would be judged by
+the experience of the north, and would likely do much less in the south. The share of Black
+population, on the other hand, is not significant in any county: the global model's answer on
+that factor holds everywhere.
+
+## 5. Different factors, different scales
+
+GWR uses one bandwidth for every factor. **Multiscale GWR** (`Spatex.GWR.mgwr/4`) gives each
+factor its own: a small bandwidth means a local relationship, a bandwidth close to the number of
+counties a state-wide one. Variables are standardized so the bandwidths are comparable.
+
+```elixir
+mgwr = Spatex.GWR.mgwr(points, y, x, standardize: true)
+
+names
+|> Enum.zip(mgwr.bws)
+|> Enum.map(fn {name, bw} -> %{factor: name, bandwidth: bw, of_counties: GDF.n_rows(counties)} end)
+|> DF.new()
+```
+
+The rural effect gets a bandwidth of 157 of 159 counties: it is essentially the **same across
+the state**. The foreign-born effect and the intercept get the smallest bandwidths: they are
+**regional**. MGWR separates what a statewide program can assume from what has to be planned
+region by region.
+
+```elixir
+%{converged: mgwr.converged, iterations: mgwr.iterations, r2: mgwr.r2}
+```
+
+## 6. Deliverables
+
+```elixir
+local =
+  Enum.zip(names, by_factor)
+  |> Enum.reduce(counties, fn {name, values}, acc ->
+    GDF.put(acc, "gwr_" <> name, S.from_list(values))
+  end)
+
+out_dir = Path.join(System.tmp_dir!(), "georgia_case")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(local, Path.join(out_dir, "local_coefficients.gpkg"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## What this showed
+
+* A single regression can hide that a relationship is **strong in one region and weak in
+  another**; residual Moran's I is the warning sign.
+* **GWR** estimates a coefficient per location, with the bandwidth chosen from the data and a
+  correction for multiple testing before reading the maps.
+* **MGWR** tells local factors from state-wide ones by giving each its own scale.
+
+The same tools fit any question where the effect of a factor may depend on the place: the price
+of an extra square meter by district, the effect of advertising by sales region, the link
+between income and health by county.

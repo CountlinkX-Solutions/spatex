@@ -1,0 +1,239 @@
+# A tour of Spatex
+
+Run this notebook from a git checkout of Spatex: it installs Spatex from the checkout (`path:`) and reads its test fixtures.
+
+```elixir
+Mix.install([
+  {:spatex, path: Path.join(__DIR__, "..")},
+  {:rustler, "~> 0.38", runtime: false},
+  {:jason, "~> 1.4"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## What this notebook does
+
+Spatex is PySAL-style spatial analysis for Elixir. This tour walks the usual exploratory workflow on
+one dataset: **spatial weights**, **global and local autocorrelation**, **hot spots with a false
+discovery rate**, **map classification**, a **point-pattern** quick look and **OLS with spatial
+diagnostics**.
+
+The data is the classic Columbus, Ohio neighbourhood crime dataset (49 polygons), bundled with the
+repository as a test fixture, so the notebook runs offline. Every random step takes a `seed:`; the
+same seed always gives the same result, whatever the number of threads. The first run compiles the
+Rust core (a few minutes in debug mode).
+
+```elixir
+fixture = Path.join([__DIR__, "..", "test", "reference", "fixtures", "datasets", "columbus.json"])
+columbus = fixture |> File.read!() |> Jason.decode!()
+
+wkbs = Enum.map(columbus["wkb_hex"], &Base.decode16!(&1, case: :mixed))
+crime = columbus["attributes"]["CRIME"]
+income = columbus["attributes"]["INC"]
+hoval = columbus["attributes"]["HOVAL"]
+
+Kino.DataTable.new(
+  Enum.zip_with([crime, income, hoval], fn [c, i, h] -> %{crime: c, income: i, house_value: h} end)
+)
+```
+
+## Spatial weights
+
+A `Spatex.Graph` records who is a neighbour of whom. `build_contiguity/2` reads polygon WKB; with
+`rook: false` two polygons are neighbours when they share at least a vertex (queen contiguity).
+Weights start binary; row-standardizing (`:r`) makes each row sum to one, so that the spatial lag
+`W y` is the *average* of the neighbours. Pass the graph as built: the ESDA functions apply
+`transform: :r` themselves.
+
+```elixir
+queen = Spatex.Graph.build_contiguity(wkbs, rook: false)
+
+%{
+  sites: Spatex.Graph.n(queen),
+  links: Spatex.Graph.nnz(queen),
+  islands: Spatex.Graph.isolates(queen),
+  neighbours_per_site: queen |> Spatex.Graph.cardinalities() |> Enum.sum() |> Kernel./(49)
+}
+```
+
+```elixir
+row_standardized = Spatex.Graph.transform(queen, :r)
+lag = Spatex.Graph.lag(row_standardized, crime)
+Enum.zip(crime, lag) |> Enum.take(5)
+```
+
+## Global Moran's I
+
+Moran's I summarises spatial autocorrelation in one number: positive when similar values cluster,
+negative when they alternate. Inference is analytic (`p_norm`, `p_rand`) and by permutation
+(`p_sim`): shuffle the values over the sites `permutations` times and see how extreme the observed
+statistic is.
+
+```elixir
+moran = Spatex.ESDA.moran(crime, queen, permutations: 999, seed: 12345)
+
+%{i: moran.i, expected: moran.ei, z: moran.z_norm, p_analytic: moran.p_norm, p_sim: moran.p_sim}
+```
+
+Crime is strongly clustered: I is about 0.50 against an expectation of -0.02, and with 999
+permutations the smallest possible pseudo p-value is 0.001. The result also records the seed, so the
+run can be repeated exactly.
+
+## Local Moran's I (LISA)
+
+`moran_local/3` decomposes the global statistic into one value per site and puts each site in a
+quadrant of the Moran scatterplot (1 High-High, 2 Low-High, 3 Low-Low, 4 High-Low). `cluster_labels/2`
+names the quadrant only where the pseudo p-value is below the significance level, and calls the other
+sites "Insignificant". A *High-High* site is a high value among high neighbours (a cluster); a
+*High-Low* site is a high value among low neighbours (an outlier).
+
+```elixir
+lisa = Spatex.ESDA.moran_local(crime, queen, permutations: 999, seed: 12345)
+labels = Spatex.ESDA.MoranLocal.cluster_labels(lisa, 0.05)
+
+labels |> Enum.frequencies() |> Enum.sort_by(&elem(&1, 1), :desc)
+```
+
+```elixir
+labels
+|> Enum.with_index()
+|> Enum.reject(fn {label, _} -> label == "Insignificant" end)
+|> Enum.map(fn {label, site} ->
+  %{site: site, label: label, crime: Enum.at(crime, site), p_sim: Enum.at(lisa.p_sim, site)}
+end)
+|> Kino.DataTable.new()
+```
+
+Testing 49 sites at the 5% level will flag about two by chance alone; see the next section for how to
+correct for that.
+
+## Hot spots with G_Local and FDR
+
+`g_local/3` is the Getis-Ord statistic: with `star: true` (G*) each site's own value is included.
+A large positive z-score is a hot spot, a large negative one a cold spot. Because many sites are
+tested at once, `fdr/2` gives the false-discovery-rate cut-off (a Benjamini-Hochberg style
+threshold): keep the sites whose `p_sim` is below it.
+
+```elixir
+gi = Spatex.ESDA.g_local(crime, queen, star: true, permutations: 999, seed: 12345)
+cutoff = Spatex.ESDA.fdr(gi.p_sim, 0.05)
+
+classify = fn z, p, threshold ->
+  cond do
+    p >= threshold -> "not significant"
+    z > 0 -> "hot spot"
+    true -> "cold spot"
+  end
+end
+
+at_5_percent = Enum.zip_with(gi.zs, gi.p_sim, &classify.(&1, &2, 0.05))
+after_fdr = Enum.zip_with(gi.zs, gi.p_sim, &classify.(&1, &2, cutoff))
+
+%{
+  fdr_cutoff: cutoff,
+  at_5_percent: Enum.frequencies(at_5_percent),
+  after_fdr: Enum.frequencies(after_fdr)
+}
+```
+
+The FDR cut-off is stricter than 0.05, so fewer sites survive: those are the ones to report.
+
+## Classification
+
+`Spatex.Classify` mirrors `mapclassify`. Fisher-Jenks picks the `k` classes that minimise the
+within-class variance, which suits skewed variables better than equal intervals. The result holds
+the bins (upper bounds), the counts per class, the class of each site (`yb`) and goodness-of-fit
+measures.
+
+```elixir
+jenks = Spatex.Classify.fisher_jenks(crime, k: 5)
+quantiles = Spatex.Classify.quantiles(crime, k: 5)
+
+%{
+  fisher_jenks: %{bins: jenks.bins, counts: jenks.counts, gadf: jenks.gadf},
+  quantiles: %{bins: quantiles.bins, counts: quantiles.counts, gadf: quantiles.gadf}
+}
+```
+
+```elixir
+Spatex.Classify.legend(jenks)
+```
+
+`gadf` (goodness of absolute deviation of fit) is higher for Fisher-Jenks because it optimises that
+criterion.
+
+## Point patterns
+
+`Spatex.PointPats` looks at the locations themselves. Here we simulate a clustered and a random
+pattern in the same window and compare their nearest-neighbour distance functions (`G`) against
+complete spatial randomness (CSR) with a seeded Monte Carlo envelope. For a clustered pattern, `G`
+rises faster than expected, so more of its distances sit above the upper envelope.
+
+```elixir
+window = {0.0, 0.0, 100.0, 100.0}
+clustered = Spatex.PointPats.cluster_poisson(window, size: 100, n_seeds: 5, cluster_radius: 6.0, seed: 3)
+random = Spatex.PointPats.poisson(window, size: 100, seed: 3)
+
+summary = fn points ->
+  test = Spatex.PointPats.g_test(points, permutations: 199, seed: 1)
+
+  %{
+    mean_center: Spatex.PointPats.mean_center(points),
+    std_distance: Spatex.PointPats.std_distance(points),
+    distances_above_envelope:
+      test.statistic |> Enum.zip(test.envelope_high) |> Enum.count(fn {g, hi} -> g > hi end),
+    distances_tested: length(test.support)
+  }
+end
+
+%{clustered: summary.(clustered), random: summary.(random)}
+```
+
+```elixir
+quadrat = Spatex.PointPats.quadrat_test(clustered, nx: 4, ny: 4)
+%{chi2: quadrat.chi2, df: quadrat.df, p_value: quadrat.chi2_pvalue}
+```
+
+A quadrat test on the clustered pattern rejects an even spread of points over the 4 x 4 grid.
+
+## OLS with spatial diagnostics
+
+`Spatex.Regression.ols/3` fits least squares with `spreg`'s diagnostics. Given a (row-standardized)
+graph it adds the Lagrange multiplier tests for a missing spatial lag or spatial error, and Moran's I
+of the residuals. Spatex never transforms the graph behind your back, so standardize it first.
+
+```elixir
+model =
+  Spatex.Regression.ols(crime, %{"INC" => income, "HOVAL" => hoval},
+    name_y: "CRIME",
+    graph: row_standardized,
+    spat_diag: true,
+    moran: true
+  )
+
+IO.puts(Spatex.Regression.summary(model))
+
+Enum.zip([model.name_x, model.betas, model.std_err])
+|> Enum.map(fn {name, beta, se} -> %{variable: name, coefficient: beta, std_error: se} end)
+|> Kino.DataTable.new()
+```
+
+```elixir
+%{
+  lm_lag: model.lm_lag,
+  lm_error: model.lm_error,
+  robust_lm_lag: model.rlm_lag,
+  robust_lm_error: model.rlm_error,
+  moran_of_residuals: model.moran_res
+}
+```
+
+Each diagnostic is `{statistic, p_value}`. A small p-value for the lag or error test means the
+residuals still carry spatial structure, which suggests a spatial lag or error model rather than OLS.
+Look at the robust versions to decide between the two.
+
+## Where to next
+
+* `notebooks/geoframe.livemd` runs the same analysis on a GeoFrame `GeoDataFrame`.
+* `notebooks/pysal_comparison.livemd` puts Spatex next to PySAL's values.
+* `docs/guide_esda.md` is the guide to choosing weights, permutations and multiple-testing corrections.

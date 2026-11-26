@@ -1,0 +1,208 @@
+Spatex
+Copyright the Spatex authors. Licensed under the Apache License, Version 2.0
+(see LICENSE).
+
+This notice records the third-party work Spatex builds on. The license texts
+of the upstream projects named below are in the LICENSES directory: one file
+per project, plus the separate license of NumPy's MT19937 code.
+
+
+1. Relation to PySAL
+--------------------
+Spatex reimplements, in Rust and Elixir, functionality of the PySAL ecosystem
+(https://pysal.org): libpysal, esda, mapclassify, pointpats, spreg, mgwr,
+spglm, giddy, inequality and spopt. The implementations were written against
+those packages: they follow the published methods, the packages'
+documentation and their source code, so that results, defaults and documented
+quirks agree, and they are checked against output produced by the packages
+themselves (section 4). docs/parity.md maps every function and lists each
+known deviation.
+
+The files listed in section 2 translate specific upstream functions. The rest
+of the Rust and Elixir code is written for Spatex: it is not a line-by-line
+translation, although some modules follow the upstream code's decomposition
+function by function (for example the Max-p, AZP and random-region heuristics
+follow spopt's) while using their own data structures and random streams.
+
+
+2. Ports and adaptations of upstream code
+-----------------------------------------
+The files below translate specific upstream functions into Rust, keeping
+their structure, branches, constants and evaluation order so that results
+agree to rounding.
+
+native/spatex_core/src/classify/optimal.rs
+    mapclassify: _fisher_jenks_means, a line-by-line translation in float32
+    with the same variable names and operation order, and the _set_bins
+    methods of JenksCaspall and JenksCaspallForced, adapted where an emptied
+    class or unsorted class maxima would break the result (docs/parity.md).
+    License: LICENSES/mapclassify.txt
+
+native/spatex_core/src/classify/maxp.rs
+    mapclassify: MaxP._set_bins, _swap and _ss (the growth and swap loops,
+    their reseeding and acceptance rule, and the summation order).
+    License: LICENSES/mapclassify.txt
+
+native/spatex_core/src/classify/bins.rs
+native/spatex_core/src/classify/mod.rs
+    mapclassify: quantile, bin1d, _pretty_number, _pretty, the _set_bins
+    methods of EqualInterval, BoxPlot, StdMean, Percentiles and
+    MaximumBreaks, and the get_tss, get_adcm and get_gadf fit statistics,
+    with the deviations listed in docs/parity.md. The natural-breaks k-means
+    and the sampled classifiers draw from Spatex's own random streams.
+    License: LICENSES/mapclassify.txt
+
+native/spatex_core/src/perm/mod.rs
+    esda: the pseudo p-value rules of esda.significance
+    (_permutation_significance) and the folded p_sim of Moran, Moran_BV,
+    Geary and G.
+    License: LICENSES/esda.txt
+
+native/spatex_core/src/regression/brent.rs
+    SciPy: scipy.optimize._minimize_scalar_bounded (minimize_scalar with
+    method="bounded"), a literal port. It drives the maximum-likelihood
+    regression and panel models and GWR's `search: :scipy`.
+    License: LICENSES/scipy.txt
+
+native/spatex_core/src/region/ward.rs
+    scikit-learn: ward_tree with a connectivity matrix
+    (AgglomerativeClustering(linkage="ward", connectivity=...)), including
+    its connectivity completion, tie-breaking and label numbering.
+    License: LICENSES/scikit-learn.txt
+    Python standard library: the sift functions of the pure-Python heapq
+    module, ported literally because scikit-learn numbers clusters by the
+    heap's array layout.
+    License: LICENSES/cpython.txt
+
+native/spatex_core/src/region/sa3.rs
+    spopt: spopt.region.SA3 and its cluster extraction.
+    License: LICENSES/spopt.txt
+    fast_hdbscan: the condensed-tree functions of fast_hdbscan.cluster_trees
+    (condense_tree, extract_eom_clusters, extract_leaves,
+    get_cluster_label_vector) and fast_hdbscan.disjoint_set, including their
+    float32 arithmetic.
+    License: LICENSES/fast_hdbscan.txt
+
+native/spatex_core/src/region/spenc.rs
+native/spatex_core/src/region/spenc_labels.rs
+    spopt: spopt.region.Spenc and spopt.region.spenclib (affinity matrix,
+    spectral embedding, hierarchical bipartition).
+    License: LICENSES/spopt.txt
+    scikit-learn: the pairwise_kernels affinities, the spectral-clustering
+    `discretize` label assignment and the k-means (k-means++ seeding, Lloyd
+    iterations) that spopt calls.
+    License: LICENSES/scikit-learn.txt
+
+native/spatex_core/src/region/skater.rs
+native/spatex_core/src/region/kmeans.rs
+    spopt: spopt.region.skater.SpanningForest and RegionKMeansHeuristic,
+    ported so that the labels equal spopt's.
+    License: LICENSES/spopt.txt
+
+native/spatex_core/src/gwr/select.rs
+native/spatex_core/src/gwr/kernel.rs
+    mgwr: mgwr.search.golden_section and mgwr.search.equal_interval, and the
+    spherical distance expression of mgwr.kernels.
+    License: LICENSES/mgwr.txt
+
+native/spatex_core/src/gwr/family.rs
+    spglm: spglm.iwls.iwls (per-location iteratively re-weighted least
+    squares), with its starting values, clipping and stopping rule.
+    License: LICENSES/spglm.txt
+
+native/spatex_core/src/regression/ml_common.rs
+native/spatex_core/src/regression/panel.rs
+    spreg: the power-series inverse of spreg.utils.power_expansion, and the
+    asymptotic variance of the panel models ML_LagFE, ML_ErrorFE and
+    ML_LagRE, which follow spreg's code literally.
+    License: LICENSES/spreg.txt
+
+native/spatex_core/src/pointpats/alpha.rs
+    libpysal: the floating-point arithmetic of libpysal.cg.alpha_shape_auto,
+    reproduced literally.
+    License: LICENSES/libpysal.txt
+
+native/spatex_core/src/classify/mt19937.rs
+native/spatex_core/src/classify/stats.rs
+native/spatex_core/src/perm/mod.rs
+    NumPy: the legacy global random generator (MT19937 seeding after
+    Matsumoto and Nishimura, bounded integers and permutation), reproduced
+    so that mapclassify's MaxP matches, the pairwise summation of
+    numpy.add.reduce, and the arange, median and percentile interpolation
+    (_lerp) semantics.
+    License: LICENSES/numpy.txt and LICENSES/numpy-mt19937.md
+
+
+3. Numerical methods from the literature
+----------------------------------------
+The special functions behind the chi-square, t and F tail probabilities
+follow published algorithm descriptions:
+
+  * the regularized upper incomplete gamma function Q(a, x)
+    (native/spatex_core/src/esda/losh.rs, dynamics/special.rs and
+    regression/dist.rs) uses the power series for x < a + 1 and the
+    continued fraction evaluated with the modified Lentz method otherwise,
+    as described in Press, W. H. et al., Numerical Recipes, section 6.2;
+  * the regularized incomplete beta function (beta_cf and betai in
+    regression/dist.rs) uses the continued fraction with the modified Lentz
+    method and the symmetry I_x(a, b) = 1 - I_(1-x)(b, a), as described in
+    section 6.4 of the same book;
+  * ln Gamma is the Lanczos approximation with g = 7 and nine coefficients in
+    esda/losh.rs and dynamics/special.rs, and libm's lgamma in
+    regression/dist.rs.
+
+
+4. Test fixtures and generators
+-------------------------------
+test/reference/fixtures holds JSON produced at development time by running
+the upstream packages through the generators in test/reference/*.py. The
+fixtures contain:
+
+  * input data copied from datasets distributed with libpysal
+    (libpysal.examples), among them Columbus, sids2, mexico, Georgia
+    (GData_utm) and NAT (NCOVR), alongside synthetic data; and
+  * numerical output of libpysal, esda, mapclassify, pointpats, spreg, mgwr,
+    giddy, inequality, spopt, fast_hdbscan, NumPy, SciPy and shapely.
+
+The generators call those packages; a few restate short upstream expressions
+(for example spreg's moment and likelihood objectives) to evaluate them at
+given parameters. The example datasets are distributed with libpysal, whose
+license is in LICENSES/libpysal.txt. Neither the fixtures nor the generators
+are part of the Hex package.
+
+
+5. Notebook datasets
+--------------------
+The datasets under notebooks/data are copies of datasets distributed with
+libpysal (BSD 3-Clause License, Copyright (c) 2007-, PySAL Developers; see
+LICENSES/libpysal.txt). Each folder's README.md describes its contents.
+
+North Carolina SIDS data
+    notebooks/data/nc_sids holds the sids2 dataset as distributed with
+    libpysal and the GeoDa Center. Source: Cressie, N. (1993), Statistics for
+    Spatial Data, Wiley, pp. 386-389.
+
+US state income data
+    notebooks/data/us_income holds the us_income dataset as distributed with
+    libpysal. Source: Regional Economic Information System, Bureau of
+    Economic Analysis, U.S. Department of Commerce.
+
+Baltimore house sales data
+    notebooks/data/baltimore holds the baltim dataset as distributed with
+    libpysal. Source: Dubin, R. A. (1992), Regional Science and Urban
+    Economics 22(3), 433-452.
+
+Georgia county data
+    notebooks/data/georgia holds the georgia dataset as distributed with
+    libpysal. Source: Fotheringham, A. S., Brunsdon, C. and Charlton, M.
+    (2002), Geographically Weighted Regression, Wiley.
+
+John Snow cholera map data
+    notebooks/data/snow holds the snow_maps dataset as distributed with
+    libpysal, a digitization of the map in Snow, J. (1855), On the Mode of
+    Communication of Cholera.
+
+Mexican state income data
+    notebooks/data/mexico holds the mexico dataset as distributed with
+    libpysal. Source: Rey, S. J. and Sastre Gutierrez, M. L. (2010), Spatial
+    Economic Analysis 5, 277-298.

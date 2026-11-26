@@ -1,0 +1,122 @@
+name: Release NIFs
+
+# Builds the precompiled NIF artifacts for a release. Triggers:
+#   - a pushed `v*` tag: builds every artifact, checks the tag against mix.exs, and the
+#     `attach_release` job attaches the artifacts to the GitHub release;
+#   - a pull request touching the build configuration (paths below: Cargo manifests, lockfile,
+#     .cargo, this file): builds the same matrix as a dry run, so a broken matrix is found
+#     before a tag is pushed. Adding NIFs does not trigger it (that would run 12 jobs per
+#     feature PR); run it manually before a release instead;
+#   - workflow_dispatch: the same dry run on demand.
+# Dry runs only upload workflow artifacts; they never touch a release. Publishing (tag,
+# GitHub release, Hex) is a maintainer decision; see "Releasing" in the README.
+#
+# Permissions: every job only reads the repository, except `attach_release`, which runs on tag
+# pushes only (never on a manual run, even one started from a tag) and is the one job that may
+# write (to create the release and upload assets).
+#
+# Artifact names follow rustler_precompiled (the action drops the `lib` prefix on Windows):
+#   libspatex_native-v<version>-nif-<nif>-<target>.so.tar.gz             (Linux and macOS)
+#   spatex_native-v<version>-nif-<nif>-x86_64-pc-windows-msvc.dll.tar.gz  (Windows)
+# and must match the targets/nif_versions in lib/spatex/native.ex.
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".cargo/**"
+      - "native/**/Cargo.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same pull request supersedes its dry run; tag builds always finish.
+concurrency:
+  group: release-nifs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build_release:
+    name: NIF ${{ matrix.nif }} - ${{ matrix.job.target }} (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        nif: ["2.16", "2.17"]
+        job:
+          - { target: aarch64-apple-darwin, os: macos-15 }
+          - { target: x86_64-apple-darwin, os: macos-15-intel }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04 }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-22.04, use-cross: true }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-22.04, use-cross: true }
+          - { target: x86_64-pc-windows-msvc, os: windows-2022 }
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Extract the project version from mix.exs
+        shell: bash
+        run: |
+          VERSION=$(sed -n 's/^ *@version "\(.*\)"/\1/p' mix.exs | head -n1)
+          echo "PROJECT_VERSION=$VERSION" >> "$GITHUB_ENV"
+          # On a tag push the tag and the package version must agree, or rustler_precompiled
+          # cannot find the files. Dry runs (pull request, manual) have no tag to compare.
+          if [[ "${GITHUB_REF}" == refs/tags/* && "v$VERSION" != "${GITHUB_REF_NAME}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match mix.exs version v$VERSION" >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          targets: ${{ matrix.job.target }}
+
+      # Cargo.toml at the repository root is a workspace; the cdylib is built from it, so the
+      # action runs at the root (project-dir "./") and finds target/<triple>/release there.
+      - name: Build the NIF
+        id: build-crate
+        uses: philss/rustler-precompiled-action@67ed0cc2d6a423e4c4cd9ad651dcc6c90f802cdb # v1.1.5
+        with:
+          project-name: spatex_native
+          project-version: ${{ env.PROJECT_VERSION }}
+          target: ${{ matrix.job.target }}
+          nif-version: ${{ matrix.nif }}
+          # Leave this empty for non-cross jobs. Action inputs are strings, so `|| false` would
+          # pass "false", which the action's `if:` treats as true and downloads `cross` anyway.
+          use-cross: ${{ matrix.job.use-cross }}
+          project-dir: "./"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.build-crate.outputs.file-name }}
+          path: ${{ steps.build-crate.outputs.file-path }}
+
+  # Attaches the artifacts the matrix built to the GitHub release of the pushed tag. Like the
+  # per-job attach step it replaces, it also attaches the artifacts of the jobs that succeeded
+  # when another one failed (`!cancelled()`); re-running the failed jobs re-runs this one. When no
+  # artifact was built, the upload fails instead of publishing an empty release.
+  attach_release:
+    name: Attach the NIFs to the GitHub release
+    needs: build_release
+    if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          # Matches both naming forms, with and without the `lib` prefix.
+          pattern: "*spatex_native-v*"
+          path: nifs
+          merge-multiple: true
+
+      - name: Attach the artifacts to the GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: nifs/*spatex_native-v*.tar.gz
+          fail_on_unmatched_files: true

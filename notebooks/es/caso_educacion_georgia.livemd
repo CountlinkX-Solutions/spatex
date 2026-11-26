@@ -1,0 +1,277 @@
+# Caso de uso: un estado, muchas relaciones. Educación en Georgia, 1990
+
+Ejecuta este notebook desde una copia git de Spatex: instala Spatex desde esa copia (`path:`).
+
+## Preparación
+
+> **No se ejecuta en CI.** GeoFrame aún no está en Hex, así que CI no lo descarga. Ejecuta
+> este notebook en local con una copia de GeoFrame:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe livebook server notebooks/es/caso_educacion_georgia.livemd
+> ```
+> 
+> o sin interfaz, para comprobar que todas las celdas funcionan:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe elixir scripts/run_livemd.exs notebooks/es/caso_educacion_georgia.livemd
+> ```
+> 
+> Versión en inglés: `notebooks/georgia_case.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "define SPATEX_GEOFRAME_PATH con la ruta a una copia de GeoFrame antes de abrir este notebook"
+
+Mix.install([
+  {:spatex, path: Path.join([__DIR__, "..", ".."])},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## La pregunta
+
+La junta de educación de un estado quiere aumentar la proporción de adultos con título
+universitario. Antes de diseñar programas pregunta qué acompaña a una proporción alta: ¿es la
+inmigración, que trae titulados?, ¿es la urbanización?, ¿es la composición racial del condado?
+Una sola regresión da una única respuesta para todo el estado. Pero Atlanta y los condados
+agrícolas del sur son lugares muy distintos, y el mismo factor puede pesar mucho en uno y poco en
+otro:
+
+1. ¿Qué dice un único modelo para todo el estado, y basta?
+2. ¿Las relaciones **cambian de un lugar a otro**, y dónde son más fuertes?
+3. ¿Cada factor actúa a la **misma escala geográfica**, o unos son locales y otros de todo el
+   estado?
+
+Los datos son reales: los 159 condados de Georgia en el censo de 1990 (Fotheringham, Brunsdon y
+Charlton, 2002; el ejemplo de `mgwr` de PySAL).
+
+## 1. Cargar los condados
+
+El Shapefile está en UTM (metros), así que las distancias entre los centroides de los condados
+tienen sentido. Los centroides también están en las columnas `X` e `Y`, que GWR usa como la
+ubicación de cada condado.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+counties =
+  [__DIR__, "..", "data", "georgia", "G_utm.shp"]
+  |> Path.join()
+  |> GeoFrame.read_file!()
+
+data = GDF.data(counties)
+points = Enum.zip(S.to_list(data["X"]), S.to_list(data["Y"]))
+
+y = data["PctBach"]
+factors = ~w(PctFB PctBlack PctRural)
+x = Enum.map(factors, &data[&1])
+
+{GDF.n_rows(counties), S.min(y), S.median(y), S.max(y)}
+```
+
+`PctBach` es el porcentaje de adultos con título universitario (bachelor's degree); va de un 4% a
+un 37%. Los factores son los porcentajes de población nacida en el extranjero (`PctFB`), negra
+(`PctBlack`) y rural (`PctRural`).
+
+```elixir
+GeoFrame.Kino.deck(counties,
+  color: {"PctBach", :viridis},
+  opacity: 0.85,
+  tooltip: ["PctBach", "PctFB", "PctBlack", "PctRural"]
+)
+```
+
+## 2. Un modelo para todo el estado
+
+```elixir
+graph = counties |> Spatex.GeoFrame.graph(:queen) |> Spatex.Graph.transform(:r)
+
+ols =
+  Spatex.Regression.ols(y, DF.select(data, factors),
+    name_y: "PctBach",
+    graph: graph,
+    spat_diag: true,
+    moran: true
+  )
+
+IO.puts(Spatex.Regression.summary(ols))
+```
+
+El modelo global dice: más residentes nacidos en el extranjero van con más titulados, más
+población rural con menos, y la proporción de población negra no tiene un efecto claro. Explica
+alrededor del 55% de la variación. Pero la **I de Moran de los residuos** es positiva y
+significativa: el modelo comete el mismo tipo de error en condados vecinos, señal de que un solo
+juego de coeficientes no sirve para todo el estado.
+
+```elixir
+%{r2: ols.r2, aic: ols.aic, moran_residuos: ols.moran_res}
+```
+
+## 3. Regresión geográficamente ponderada
+
+GWR ajusta una regresión **por condado**, ponderando los demás condados según lo cerca que estén.
+La elección clave es el **ancho de banda**: cuántos vecinos usa cada regresión local.
+`Spatex.GWR.select_bandwidth/4` lo busca minimizando el AICc, así que son los datos los que
+deciden cuán local debe ser el modelo.
+
+```elixir
+bandwidth = Spatex.GWR.select_bandwidth(points, y, x)
+gwr = Spatex.GWR.fit(points, y, x, bw: bandwidth.bw)
+
+%{
+  vecinos_por_regresion: bandwidth.bw,
+  r2_modelo_global: ols.r2,
+  r2_gwr: gwr.r2,
+  aic_modelo_global: ols.aic,
+  aic_gwr: gwr.aic
+}
+```
+
+Cada regresión local usa los 117 condados más cercanos (con pesos que caen a cero en el 117). El
+ajuste mejora claramente: R cuadrado más alto y AIC más bajo, que ya penaliza la flexibilidad
+añadida. Y el patrón espacial de los errores desaparece:
+
+```elixir
+moran_gwr = Spatex.ESDA.moran(gwr.resid, graph, permutations: 999, seed: 1990)
+%{moran_residuos_gwr: moran_gwr.i, p_sim: moran_gwr.p_sim}
+```
+
+## 4. Dónde pesa cada factor
+
+Cada condado tiene ahora sus propios coeficientes. Su rango ya cuenta la historia:
+
+```elixir
+names = ["Intercept" | factors]
+by_factor = gwr.params |> Enum.zip_with(& &1)
+
+names
+|> Enum.zip(by_factor)
+|> Enum.map(fn {name, values} -> %{factor: name, minimo: Enum.min(values), maximo: Enum.max(values)} end)
+|> DF.new()
+```
+
+El coeficiente de la población extranjera va de 0,6 a 3,4 aproximadamente: un punto más de
+residentes nacidos en el extranjero va con 0,6 puntos más de titulados en unos condados y con 3,4
+en otros. El coeficiente rural es negativo en todas partes y cambia poco.
+
+Con 159 regresiones locales, algunos valores t parecerían significativos por azar.
+`filter_tvals/2` aplica la corrección por comparaciones múltiples de mgwr y pone a cero los
+valores no significativos:
+
+```elixir
+significant = gwr |> Spatex.GWR.filter_tvals() |> Enum.zip_with(& &1)
+
+names
+|> Enum.zip(significant)
+|> Enum.map(fn {name, t} ->
+  %{
+    factor: name,
+    condados_significativos: Enum.count(t, &(&1 != 0.0)),
+    positivos: Enum.count(t, &(&1 > 0)),
+    negativos: Enum.count(t, &(&1 < 0))
+  }
+end)
+|> DF.new()
+```
+
+```elixir
+fb_t = Enum.at(significant, 1)
+fb = Enum.at(by_factor, 1)
+
+counties =
+  counties
+  |> GDF.put("coef_foreign_born", S.from_list(fb))
+  |> GDF.put(
+    "coef_foreign_born_significant",
+    S.from_list(Enum.zip_with(fb, fb_t, fn b, t -> if t != 0.0, do: b, else: nil end))
+  )
+
+GeoFrame.Kino.deck(counties,
+  color: {"coef_foreign_born_significant", :viridis},
+  opacity: 0.85,
+  tooltip: ["PctBach", "PctFB", "coef_foreign_born", "coef_foreign_born_significant"]
+)
+```
+
+El mapa muestra un gradiente norte-sur claro: la relación entre inmigración y educación es más
+fuerte en el norte, alrededor de Atlanta, y débil en el sur, donde no es significativa en un
+grupo de condados (sin color). La correlación del coeficiente local con la coordenada norte lo
+mide:
+
+```elixir
+correlation = fn a, b ->
+  n = length(a)
+  {ma, mb} = {Enum.sum(a) / n, Enum.sum(b) / n}
+  cov = Enum.zip_with(a, b, &((&1 - ma) * (&2 - mb))) |> Enum.sum()
+  var = fn v, m -> v |> Enum.map(&((&1 - m) ** 2)) |> Enum.sum() end
+  cov / :math.sqrt(var.(a, ma) * var.(b, mb))
+end
+
+%{correlacion_con_el_norte: correlation.(fb, S.to_list(data["Y"]))}
+```
+
+Para la junta, esto quiere decir que una política basada en atraer inmigrantes cualificados se
+juzgaría por la experiencia del norte y probablemente haría mucho menos en el sur. La proporción
+de población negra, en cambio, no es significativa en ningún condado: la respuesta del modelo
+global para ese factor vale en todas partes.
+
+## 5. Factores distintos, escalas distintas
+
+GWR usa un mismo ancho de banda para todos los factores. La **GWR multiescala**
+(`Spatex.GWR.mgwr/4`) da a cada factor el suyo: un ancho de banda pequeño indica una relación
+local; uno cercano al número de condados, una relación de todo el estado. Las variables se
+estandarizan para que los anchos de banda sean comparables.
+
+```elixir
+mgwr = Spatex.GWR.mgwr(points, y, x, standardize: true)
+
+names
+|> Enum.zip(mgwr.bws)
+|> Enum.map(fn {name, bw} -> %{factor: name, ancho_de_banda: bw, de_condados: GDF.n_rows(counties)} end)
+|> DF.new()
+```
+
+El efecto rural recibe un ancho de banda de 157 de 159 condados: es prácticamente **el mismo en
+todo el estado**. El efecto de la población extranjera y el término independiente reciben los
+anchos de banda más pequeños: son **regionales**. MGWR separa lo que un programa estatal puede dar
+por supuesto de lo que hay que planificar región por región.
+
+```elixir
+%{convergio: mgwr.converged, iteraciones: mgwr.iterations, r2: mgwr.r2}
+```
+
+## 6. Entregables
+
+```elixir
+local =
+  Enum.zip(names, by_factor)
+  |> Enum.reduce(counties, fn {name, values}, acc ->
+    GDF.put(acc, "gwr_" <> name, S.from_list(values))
+  end)
+
+out_dir = Path.join(System.tmp_dir!(), "caso_georgia")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(local, Path.join(out_dir, "coeficientes_locales.gpkg"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## Lo que hemos visto
+
+* Una sola regresión puede ocultar que una relación es **fuerte en una región y débil en otra**;
+  la I de Moran de los residuos es la señal de alarma.
+* **GWR** estima un coeficiente por lugar, con el ancho de banda elegido a partir de los datos y
+  una corrección por comparaciones múltiples antes de leer los mapas.
+* **MGWR** distingue los factores locales de los de todo el estado dando a cada uno su escala.
+
+Las mismas herramientas sirven para cualquier pregunta en la que el efecto de un factor pueda
+depender del lugar: el precio de un metro cuadrado más por distrito, el efecto de la publicidad
+por región de ventas, la relación entre renta y salud por condado.

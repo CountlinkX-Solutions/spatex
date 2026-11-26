@@ -1,0 +1,30 @@
+{
+ "adjacency": {
+  "focal": [0, 0, 1, 2, 3, 3, 4, 5],
+  "neighbor": [1, 2, 0, 3, 0, 2, 4, 0],
+  "weight": [1.0, 2.0, 3.0, 0.5, 2.5, 1.5, 0.0, 0.0]
+ },
+ "description": "Hand-written a..f: e is an island (self-loop 0.0) and f -> a carries an explicit 0.0 weight.",
+ "ids": ["a", "b", "c", "d", "e", "f"],
+ "meta": {
+  "esda": "2.10.0",
+  "libpysal": "4.15.1",
+  "numpy": "2.5.4"
+ },
+ "n": 6,
+ "name": "sparse_explicit_zero",
+ "sparse": {
+  "O": {
+   "data": [1.0, 2.0, 3.0, 0.5, 2.5, 1.5, 0.0, 0.0],
+   "indices": [1, 2, 0, 3, 0, 2, 4, 0],
+   "indptr": [0, 2, 3, 4, 6, 7, 8],
+   "shape": [6, 6]
+  },
+  "R": {
+   "data": [0.3333333333333333, 0.6666666666666666, 1.0, 1.0, 0.625, 0.375, 0.0, 0.0],
+   "indices": [1, 2, 0, 3, 0, 2, 4, 0],
+   "indptr": [0, 2, 3, 4, 6, 7, 8],
+   "shape": [6, 6]
+  }
+ }
+}

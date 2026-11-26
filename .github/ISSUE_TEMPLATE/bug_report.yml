@@ -1,0 +1,42 @@
+name: Bug report
+description: A wrong result, a crash, or a build or installation failure.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did and what went wrong, including the full error message.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest Elixir code (with inline data) that shows the problem.
+      render: elixir
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: >-
+        For a numerical difference, the PySAL call you compare against and its output, with the
+        package and its version (for example esda 2.10.0).
+  - type: input
+    id: version
+    attributes:
+      label: Spatex version
+      placeholder: "0.2.1"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        Output of `elixir --version`, the operating system and CPU architecture, and whether the
+        NIF was precompiled or built from source (`SPATEX_BUILD`, `rustc --version`).
+    validations:
+      required: true

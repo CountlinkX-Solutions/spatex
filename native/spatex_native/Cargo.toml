@@ -1,0 +1,27 @@
+[package]
+name = "spatex_native"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+# NIF symbols (enif_*) only resolve inside the BEAM, so this crate has no Rust tests;
+# logic and its tests live in spatex_core.
+test = false
+doctest = false
+
+[dependencies]
+spatex_core = { path = "../spatex_core" }
+rustler = "0.39.0"
+
+# rustler_precompiled builds with `--features nif_version_X_Y` to pick the NIF ABI of each
+# artifact (see lib/spatex/native.ex `nif_versions`). Keep one feature per declared version.
+# The default is what `mix compile` (build from source) uses.
+[features]
+default = ["nif_version_2_15"]
+nif_version_2_15 = ["rustler/nif_version_2_15"]
+nif_version_2_16 = ["rustler/nif_version_2_16"]
+nif_version_2_17 = ["rustler/nif_version_2_17"]

@@ -1,0 +1,126 @@
+{
+  "build_contiguity columbus (n=49, rook)": {
+    "median_ms": 2.8997970002819784,
+    "mean_ms": 2.9074786998535274,
+    "min_ms": 2.795119995425921,
+    "samples": 20,
+    "first_call_ms": 4.365380998933688
+  },
+  "_versions": {
+    "libpysal": "4.15.1",
+    "esda": "2.10.0",
+    "spreg": "1.9.1",
+    "mapclassify": "2.11.0",
+    "mgwr": "2.2.1",
+    "numpy": "2.5.4",
+    "shapely": "2.2.0",
+    "python": "3.12.14"
+  },
+  "build_contiguity lattice (n=10000, rook)": {
+    "median_ms": 114.1397989995312,
+    "mean_ms": 146.96349399746396,
+    "min_ms": 108.17961899738293,
+    "samples": 5,
+    "first_call_ms": 202.0783109983313
+  },
+  "build_knn (n=10000, k=8)": {
+    "median_ms": 59.441874000185635,
+    "mean_ms": 59.57957200007513,
+    "min_ms": 57.14941600308521,
+    "samples": 5,
+    "first_call_ms": 65.68382200202905
+  },
+  "build_knn (n=100000, k=8)": {
+    "median_ms": 648.9058890001616,
+    "mean_ms": 647.90928200091,
+    "min_ms": 645.1487020021887,
+    "samples": 3,
+    "first_call_ms": 732.3639320020447
+  },
+  "moran (n=10000, 999 perms)": {
+    "median_ms": 118.16679599724011,
+    "mean_ms": 117.97873659961624,
+    "min_ms": 116.89748900244012,
+    "samples": 5,
+    "first_call_ms": 120.69213399809087
+  },
+  "moran_local (n=10000, 999 perms)": {
+    "error": "MemoryError under the 2 GiB address-space cap (Allocation failed (probably too large).)"
+  },
+  "moran_local (n=10000, 999 perms, no sims kept)": {
+    "median_ms": 228.11360900232103,
+    "mean_ms": 227.98433333324888,
+    "min_ms": 227.63060499710264,
+    "samples": 3,
+    "first_call_ms": 228.67419599788263
+  },
+  "moran_local (n=10000, 999 perms, n_jobs=-1)": {
+    "error": "MemoryError under the 2 GiB address-space cap (Unable to allocate 76.2 MiB for an array with shape (10000, 999) and data type float64)"
+  },
+  "fisher_jenks (n=5000, k=5)": {
+    "median_ms": 47.58991300332127,
+    "mean_ms": 47.85275060276035,
+    "min_ms": 47.06504600471817,
+    "samples": 5,
+    "first_call_ms": 48.19122100161621
+  },
+  "ols + spatial diagnostics (n=10000, k=4)": {
+    "median_ms": 8.638946994324215,
+    "mean_ms": 8.657707997675365,
+    "min_ms": 8.331479999469593,
+    "samples": 3,
+    "first_call_ms": 24.500993997207843
+  },
+  "ml_lag ord (n=2500)": {
+    "error": "MemoryError under the 2 GiB address-space cap ()"
+  },
+  "gwr select_bandwidth (n=1000, k=3)": {
+    "median_ms": 1245.724827000231,
+    "mean_ms": 1249.686781333973,
+    "min_ms": 1216.6629999992438,
+    "samples": 3,
+    "first_call_ms": 5929.070869999123
+  },
+  "moran_local (n=10000, 999 perms) [OPENBLAS_NUM_THREADS=1]": {
+    "median_ms": 310.5352629936533,
+    "mean_ms": 318.51415399675415,
+    "min_ms": 306.25234200124396,
+    "samples": 3,
+    "first_call_ms": 12857.576926995534
+  },
+  "moran_local (n=10000, 999 perms, no sims kept) [OPENBLAS_NUM_THREADS=1]": {
+    "median_ms": 224.55137300130446,
+    "mean_ms": 223.1929219997255,
+    "min_ms": 219.70533800049452,
+    "samples": 3,
+    "first_call_ms": 222.63722100615269
+  },
+  "moran_local (n=10000, 999 perms, n_jobs=-1) [OPENBLAS_NUM_THREADS=1]": {
+    "median_ms": 401.55097400565865,
+    "mean_ms": 396.27614966836217,
+    "min_ms": 382.80712599953404,
+    "samples": 3,
+    "first_call_ms": 22526.075755005877
+  },
+  "ols + spatial diagnostics (n=10000, k=4) [OPENBLAS_NUM_THREADS=1]": {
+    "median_ms": 8.95973399747163,
+    "mean_ms": 8.931218665869286,
+    "min_ms": 8.576758998970035,
+    "samples": 3,
+    "first_call_ms": 23.399191006319597
+  },
+  "ml_lag ord (n=2500) [OPENBLAS_NUM_THREADS=1]": {
+    "median_ms": 2903.7811550006154,
+    "mean_ms": 2966.806929999924,
+    "min_ms": 2901.340024996898,
+    "samples": 3,
+    "first_call_ms": 3045.5912969991914
+  },
+  "gwr select_bandwidth (n=1000, k=3) [OPENBLAS_NUM_THREADS=1]": {
+    "median_ms": 1239.1054629988503,
+    "mean_ms": 1261.2302466683711,
+    "min_ms": 1231.870631003403,
+    "samples": 3,
+    "first_call_ms": 6084.163867002644
+  }
+}

@@ -1,0 +1,345 @@
+# Caso de uso: ¿sigue decidiendo el lugar la renta? Estados de EE. UU., 1929-2009
+
+Ejecuta este notebook desde una copia git de Spatex: instala Spatex desde esa copia (`path:`).
+
+## Preparación
+
+> **No se ejecuta en CI.** GeoFrame aún no está en Hex, así que CI no lo descarga. Ejecuta
+> este notebook en local con una copia de GeoFrame:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe livebook server notebooks/es/caso_ingresos_eeuu.livemd
+> ```
+> 
+> o sin interfaz, para comprobar que todas las celdas funcionan:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe elixir scripts/run_livemd.exs notebooks/es/caso_ingresos_eeuu.livemd
+> ```
+> 
+> Versión en inglés: `notebooks/us_income_case.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "define SPATEX_GEOFRAME_PATH con la ruta a una copia de GeoFrame antes de abrir este notebook"
+
+Mix.install([
+  {:spatex, path: Path.join([__DIR__, "..", ".."])},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## La pregunta
+
+Una agencia de desarrollo regional tiene que decidir si su dinero debe seguir yendo a los estados
+más pobres, y un inversor quiere saber si la posición de un estado es un hecho duradero o algo
+que cambia. Los dos se hacen las mismas preguntas:
+
+1. ¿Se ha **cerrado** la brecha entre estados ricos y pobres?
+2. Lo que queda de brecha, ¿es **regional** o está repartido al azar por el mapa?
+3. ¿Cuánta **movilidad** hay: cuánto tarda un estado pobre en volverse rico?
+4. ¿El futuro de un estado depende de sus **vecinos**?
+
+Los datos son reales: renta personal per cápita de los 48 estados contiguos, cada año de 1929 a
+2009 (Bureau of Economic Analysis, distribuidos con PySAL). El análisis sigue a Rey y Montouri
+(1999) y Rey (2001).
+
+## 1. Cargar los estados y sus rentas
+
+GeoFrame lee el Shapefile con las fronteras de los estados; Explorer lee la tabla de rentas (una
+fila por estado, una columna por año). Se emparejan por el código FIPS del estado, que el
+Shapefile guarda como texto y la tabla como entero.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+data_dir = Path.join([__DIR__, "..", "data", "us_income"])
+
+states =
+  data_dir
+  |> Path.join("us48.shp")
+  |> GeoFrame.read_file!()
+  |> GDF.set_crs("EPSG:4269")
+  |> GDF.select(["STATE_NAME", "STATE_ABBR", "STATE_FIPS", "SUB_REGION"])
+
+states = GDF.put(states, "fips", S.cast(GDF.pull(states, "STATE_FIPS"), {:s, 64}))
+
+income = DF.from_csv!(Path.join(data_dir, "usjoin.csv"))
+years = Enum.map(1929..2009, &Integer.to_string/1)
+
+{GDF.n_rows(states), DF.n_rows(income), length(years)}
+```
+
+Las rentas están en dólares corrientes, así que 1929 y 2009 no se pueden comparar directamente.
+La solución estándar es la **renta relativa**: la renta de cada estado dividida entre la media de
+los 48 estados ese año. 1,0 es la media nacional; 0,5, la mitad. La construimos como una matriz
+`n x t` (una fila por estado, en el orden del Shapefile, y una columna por año), la forma que
+recibe cualquier función de `Spatex.Dynamics`.
+
+```elixir
+by_fips = income |> DF.to_rows() |> Map.new(&{&1["STATE_FIPS"], &1})
+fips = states |> GDF.pull("fips") |> S.to_list()
+
+dollars = Enum.map(fips, fn f -> Enum.map(years, &(by_fips[f][&1] * 1.0)) end)
+
+relative_by_year =
+  dollars
+  |> Enum.zip_with(& &1)
+  |> Enum.map(fn year -> Enum.map(year, &(&1 * length(year) / Enum.sum(year))) end)
+
+relative = Enum.zip_with(relative_by_year, & &1)
+year = fn y -> Enum.at(relative_by_year, String.to_integer(y) - 1929) end
+
+states =
+  states
+  |> GDF.put("rel1929", S.from_list(year.("1929")))
+  |> GDF.put("rel2009", S.from_list(year.("2009")))
+
+GeoFrame.Kino.deck(states,
+  color: {"rel1929", :viridis},
+  opacity: 0.85,
+  tooltip: ["STATE_NAME", "rel1929", "rel2009"]
+)
+```
+
+```elixir
+GeoFrame.Kino.deck(states,
+  color: {"rel2009", :viridis},
+  opacity: 0.85,
+  tooltip: ["STATE_NAME", "rel1929", "rel2009"]
+)
+```
+
+```elixir
+states
+|> GDF.data()
+|> DF.select(["STATE_NAME", "SUB_REGION", "rel1929", "rel2009"])
+|> DF.sort_by(asc: rel1929)
+```
+
+En 1929 los estados más pobres (Carolina del Sur, Misisipi, Arkansas, Alabama) tenían menos del
+55% de la renta media y Nueva York casi el doble. En 2009 los más pobres rondan el 80% y los más
+ricos no llegan a 1,5 veces la media. Los colores se movieron, pero el Sur sigue más oscuro.
+
+## 2. ¿Se ha cerrado la brecha?
+
+El coeficiente de Gini de las rentas relativas mide la brecha con un solo número: 0 cuando todos
+los estados tienen la misma renta. Lo calculamos para cada año.
+
+```elixir
+gini_by_year =
+  DF.new(
+    year: Enum.map(years, &String.to_integer/1),
+    gini: Enum.map(relative_by_year, &Spatex.Inequality.gini/1)
+  )
+
+gini_by_year |> DF.filter(remainder(year, 10) == 0 or year == 1929 or year == 2009)
+```
+
+La brecha sube durante la Gran Depresión y luego cae con fuerza hasta 1980 más o menos: los
+estados pobres crecieron más deprisa que los ricos (los economistas lo llaman convergencia
+sigma). Después de 1980 el Gini deja de bajar y se mueve de lado. **La convergencia con la que
+puede estar contando la agencia terminó hace una generación.**
+
+## 3. ¿Es regional la brecha?
+
+La T de Theil se puede dividir en una parte **entre** grupos y otra **dentro** de ellos.
+`Spatex.Inequality.theil_d/3` recibe la matriz completa y la subregión del censo de cada estado,
+y devuelve las dos partes para cada año.
+
+```elixir
+theil = Spatex.Inequality.theil_d(relative, GDF.pull(states, "SUB_REGION"))
+
+theil_by_year =
+  DF.new(
+    year: Enum.map(years, &String.to_integer/1),
+    theil: theil.t,
+    between_regions_share: Enum.zip_with(theil.bg, theil.t, &(&1 / &2))
+  )
+
+theil_by_year |> DF.filter(remainder(year, 10) == 0 or year == 1929 or year == 2009)
+```
+
+Incluso en 2009, más del 40% de la desigualdad entre estados (`between_regions_share`) es
+desigualdad entre las nueve subregiones del censo. Saber la región de un estado sigue diciendo
+mucho de su renta.
+
+La I de Moran hace la misma pregunta sin regiones predefinidas: ¿los estados con rentas parecidas
+son vecinos?
+
+```elixir
+graph = Spatex.GeoFrame.graph(states, :queen)
+w = Spatex.Graph.transform(graph, :r)
+
+moran_by_decade =
+  for y <- ~w(1929 1940 1950 1960 1970 1980 1990 2000 2009) do
+    m = Spatex.ESDA.moran(year.(y), w, permutations: 999, seed: 1)
+    %{year: y, moran_i: m.i, p_sim: m.p_sim}
+  end
+
+DF.new(moran_by_decade)
+```
+
+La renta está agrupada en todas las décadas, con el valor más bajo hacia 1980 y un patrón fuerte
+otra vez después. El Gini espacial lo concreta: divide la brecha total entre parejas de estados
+vecinos y parejas que no lo son. Una polarización mayor que 1 quiere decir que los no vecinos se
+diferencian más que los vecinos.
+
+```elixir
+for y <- ~w(1929 2009) do
+  g = Spatex.Inequality.spatial_gini(year.(y), graph, permutations: 999, seed: 1)
+  %{year: y, gini: g.g, polarizacion: g.polarization, p_sim: g.p_sim}
+end
+```
+
+## 4. ¿Cuánta movilidad hay?
+
+Dividimos los estados en cinco clases de renta (quintiles) cada año y contamos cuántas veces un
+estado pasa de una clase a otra de un año al siguiente. `Spatex.Dynamics.markov/2` hace la
+clasificación y el recuento.
+
+```elixir
+markov = Spatex.Dynamics.markov(relative, k: 5)
+
+round3 = fn rows -> Enum.map(rows, fn row -> Enum.map(row, &Float.round(&1 * 1.0, 3)) end) end
+round3.(markov.p)
+```
+
+La fila `i` es «este año en la clase `i`» y la columna `j`, «el año siguiente en la clase `j`».
+La diagonal está cerca de 1: en un año dado, entre el 79% y el 93% de los estados se quedan en su
+clase. Los movimientos son pequeños, de una clase cada vez.
+
+El **tiempo medio de primer paso** lo traduce a años: cuánto tarda de media un estado de una
+clase en llegar por primera vez a otra.
+
+```elixir
+years_to = fn row -> Enum.map(row, &Float.round(&1, 1)) end
+
+%{
+  desde_el_mas_pobre: markov.mfpt |> hd() |> years_to.(),
+  desde_el_mas_rico: markov.mfpt |> List.last() |> years_to.()
+}
+```
+
+Un estado del quintil más pobre necesita de media alrededor de un siglo para llegar por primera
+vez al quintil más rico. La tau de Kendall entre las clasificaciones de 1929 y de 2009 confirma
+la persistencia: las dos clasificaciones siguen coincidiendo mucho más de lo que permitiría el
+azar.
+
+```elixir
+tau = Spatex.Dynamics.kendall_tau(year.("1929"), year.("2009"))
+%{tau: tau.tau, p: tau.p}
+```
+
+## 5. ¿Importan los vecinos?
+
+La cadena de Markov espacial repite la tabla de transiciones por separado para los estados cuyos
+**vecinos** son pobres, intermedios o ricos (la clase del rezago espacial al empezar el año). Si
+el lugar no importara, las cinco tablas serían iguales.
+
+```elixir
+spatial = Spatex.Dynamics.spatial_markov(relative, w, k: 5, m: 5, fixed: true)
+
+# Primera fila de cada tabla condicional: estados de la clase más pobre, según la clase de sus vecinos.
+poorest =
+  for {counts, probs, lag} <- Enum.zip([spatial.t, spatial.p_cond, 1..5]) do
+    %{
+      clase_de_los_vecinos: lag,
+      observaciones: counts |> hd() |> Enum.sum() |> trunc(),
+      sigue_en_la_mas_pobre: probs |> hd() |> hd(),
+      sube_de_clase: probs |> hd() |> tl() |> Enum.sum()
+    }
+  end
+
+DF.new(poorest)
+```
+
+Lee cada fila como «un estado del quintil más pobre cuyos vecinos están en la clase
+`clase_de_los_vecinos`». Con los vecinos más pobres, sigue abajo al año siguiente el 96% de las
+veces; con vecinos de cualquier clase superior, sube de clase entre tres y cinco veces más a
+menudo. La última fila tiene muy pocas observaciones: un estado pobre casi nunca tiene vecinos
+ricos, y eso ya es el patrón regional de la sección 3. Mira siempre `observaciones` antes de leer
+una probabilidad.
+
+Las pruebas de homogeneidad comprueban que la diferencia no es casualidad:
+
+```elixir
+%{
+  estadistico_q: spatial.q,
+  p_valor_q: spatial.q_p_value,
+  razon_de_verosimilitud: spatial.lr,
+  p_valor_lr: spatial.lr_p_value,
+  grados_de_libertad: spatial.dof_hom
+}
+```
+
+Los p-valores son prácticamente cero: **las oportunidades de un estado dependen de su entorno.**
+Las tablas condicionales completas están en `spatial.p_cond`, una por clase de los vecinos:
+
+```elixir
+spatial.p_cond |> Enum.map(round3)
+```
+
+## 6. ¿Dónde están hoy los clusters?
+
+La I de Moran local muestra qué estados forman los clusters en 2009, para que la agencia vea dónde
+un programa regional actuaría sobre toda una zona en vez de sobre un solo estado.
+
+```elixir
+lisa = Spatex.ESDA.moran_local(year.("2009"), w, permutations: 9999, seed: 2009)
+states = Spatex.GeoFrame.put_results(states, lisa, prefix: "lisa2009_")
+
+GeoFrame.Kino.deck(states,
+  color: {"lisa2009_cluster", :categorical},
+  opacity: 0.85,
+  tooltip: ["STATE_NAME", "rel2009", "lisa2009_cluster", "lisa2009_p_sim"]
+)
+```
+
+```elixir
+states
+|> GDF.data()
+|> DF.filter(lisa2009_cluster != "Insignificant")
+|> DF.select(["STATE_NAME", "SUB_REGION", "rel2009", "lisa2009_cluster", "lisa2009_p_sim"])
+|> DF.sort_by(asc: lisa2009_cluster)
+```
+
+`High-High` (alto-alto) es el bloque rico del noreste; `Low-Low` (bajo-bajo), el bloque del Sur
+con rentas bajas.
+
+## 7. Entregables
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "caso_ingresos_eeuu")
+File.mkdir_p!(out_dir)
+
+:ok = GeoFrame.write_file(states, Path.join(out_dir, "estados.gpkg"))
+:ok = DF.to_csv(gini_by_year, Path.join(out_dir, "gini_por_anio.csv"))
+:ok = DF.to_csv(theil_by_year, Path.join(out_dir, "theil_por_anio.csv"))
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## Lo que hemos visto
+
+* **La brecha se cerró y luego dejó de cerrarse.** La desigualdad entre estados cayó a menos de
+  la mitad entre los años treinta y 1980, y desde entonces se mueve de lado.
+* **Lo que queda es regional.** Más del 40% está entre subregiones del censo, y la renta está
+  agrupada en el espacio en todas las décadas.
+* **Las posiciones cuestan de cambiar.** Pasar del quintil más pobre al más rico lleva de media
+  alrededor de un siglo.
+* **Los vecinos importan.** Un estado pobre rodeado de los estados más pobres rara vez sale de la
+  clase de abajo; con vecinos en mejor situación sube entre tres y cinco veces más a menudo.
+
+Para la agencia, esto es un argumento a favor de programas regionales que crucen las fronteras
+entre estados. Para el inversor, dice que la posición de un estado cambia despacio y que el
+entorno forma parte de la previsión.
+
+Las mismas herramientas sirven para cualquier panel de áreas en el tiempo: paro por condado,
+precio de la vivienda por barrio, ventas por zona comercial.

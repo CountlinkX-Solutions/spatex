@@ -1,0 +1,462 @@
+# Caso de uso: dónde empezar un programa de prevención del SIDS en Carolina del Norte
+
+Ejecuta este notebook desde una copia git de Spatex: instala Spatex desde esa copia (`path:`).
+
+## Preparación
+
+> **No se ejecuta en CI.** GeoFrame aún no está en Hex, así que CI no lo descarga. Ejecuta
+> este notebook en local con una copia de GeoFrame:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe livebook server notebooks/es/caso_sids_carolina_del_norte.livemd
+> ```
+> 
+> o sin interfaz, para comprobar que todas las celdas funcionan:
+> 
+> ```
+> SPATEX_GEOFRAME_PATH=/ruta/a/geoframe elixir scripts/run_livemd.exs notebooks/es/caso_sids_carolina_del_norte.livemd
+> ```
+> 
+> Versión en inglés: `notebooks/nc_sids_case.livemd`.
+
+```elixir
+geoframe_path =
+  System.get_env("SPATEX_GEOFRAME_PATH") ||
+    raise "define SPATEX_GEOFRAME_PATH con la ruta a una copia de GeoFrame antes de abrir este notebook"
+
+Mix.install([
+  {:spatex, path: Path.join([__DIR__, "..", ".."])},
+  {:rustler, "~> 0.38", runtime: false},
+  {:geoframe, path: geoframe_path},
+  {:explorer, "~> 0.13"},
+  {:kino, "~> 0.19"}
+])
+```
+
+## La pregunta
+
+El departamento de salud de un estado tiene presupuesto para un programa de prevención del
+síndrome de muerte súbita del lactante (SIDS): campañas de sueño seguro, visitas a domicilio
+después del parto y formación en las maternidades. No puede cubrir los 100 condados, así que tiene
+que responder cuatro preguntas:
+
+1. ¿Las muertes por SIDS se reparten por igual, o se concentran en alguna parte del estado?
+2. Si se concentran, ¿**en qué condados** debería empezar el programa?
+3. ¿Esa elección seguiría siendo correcta unos años después, o estaría persiguiendo ruido?
+4. ¿Cómo agrupar los condados en **distritos del programa** lo bastante grandes para medir el
+   avance?
+
+Los datos son reales: muertes por SIDS y nacidos vivos por condado en 1974-78 y 1979-84
+(Cressie, 1993, distribuidos con PySAL). Planificamos con el primer periodo y usamos el segundo
+para revisar el plan, como haría un departamento al evaluar un programa.
+
+## 1. Cargar los condados
+
+GeoFrame lee el Shapefile directamente como un `GeoFrame.GeoDataFrame`: un data frame de
+Explorer con los atributos más una columna de geometría. El fichero no trae `.prj`; sus
+coordenadas son longitud / latitud en NAD27, así que registramos ese CRS.
+
+```elixir
+require Explorer.DataFrame, as: DF
+alias Explorer.Series, as: S
+alias GeoFrame.GeoDataFrame, as: GDF
+
+data_dir = Path.join([__DIR__, "..", "data", "nc_sids"])
+
+counties =
+  data_dir
+  |> Path.join("sids2.shp")
+  |> GeoFrame.read_file!()
+  |> GDF.set_crs("EPSG:4267")
+  |> GDF.select(["NAME", "FIPS", "BIR74", "SID74", "NWBIR74", "BIR79", "SID79", "NWBIR79"])
+
+{GDF.n_rows(counties), GDF.crs(counties)}
+```
+
+Las columnas son: `BIR74` / `BIR79` nacidos vivos, `SID74` / `SID79` muertes por SIDS y
+`NWBIR74` / `NWBIR79` nacidos vivos no blancos, en cada periodo.
+
+```elixir
+GeoFrame.Kino.deck(counties,
+  color: {"SID74", :viridis},
+  opacity: 0.85,
+  tooltip: ["NAME", "BIR74", "SID74"]
+)
+```
+
+El mapa de recuentos muestra sobre todo dónde nacen los bebés: Mecklenburg (Charlotte) y Guilford
+(Greensboro) tienen más muertes porque tienen más nacimientos. El programa necesita una **tasa**.
+
+## 2. Tasas, y por qué la tasa bruta engaña
+
+La medida obvia son las muertes por cada 1.000 nacimientos. Mira los condados con las tasas
+brutas **más bajas**, los que un programa dejaría fuera:
+
+```elixir
+rate = fn deaths, births -> S.multiply(S.divide(deaths, births), 1000) end
+
+counties =
+  counties
+  |> GDF.put("rate74", rate.(GDF.pull(counties, "SID74"), GDF.pull(counties, "BIR74")))
+  |> GDF.put("rate79", rate.(GDF.pull(counties, "SID79"), GDF.pull(counties, "BIR79")))
+
+counties
+|> GDF.data()
+|> DF.select(["NAME", "BIR74", "SID74", "rate74"])
+|> DF.sort_by(asc: rate74)
+|> DF.head(10)
+```
+
+Todos tienen una tasa de exactamente cero, y todos son pequeños: unos cientos de nacimientos en
+cinco años, donde la media del estado (unos 2 por 1.000) predice una muerte o ninguna. Cero
+muertes ahí es suerte, no seguridad, y una muerte más llevaría a ese condado del fondo a la mitad
+alta de la clasificación. Una clasificación por tasa bruta mezcla la señal con el tamaño del
+condado.
+
+La solución habitual es el suavizado **Empirical Bayes**: la tasa de cada condado se acerca a la
+del estado tanto más cuantos menos datos tiene. `Spatex.ESDA.assuncao_rate/2` da la tasa
+estandarizada Empirical Bayes de Assunção y Reis (1999): una puntuación tipo z, 0 para la media
+del estado, comparable entre un condado con 300 nacimientos y otro con 20.000.
+
+```elixir
+eb74 =
+  Spatex.ESDA.assuncao_rate(GDF.pull(counties, "SID74"), GDF.pull(counties, "BIR74"))
+
+eb79 =
+  Spatex.ESDA.assuncao_rate(GDF.pull(counties, "SID79"), GDF.pull(counties, "BIR79"))
+
+counties =
+  counties
+  |> GDF.put("eb74", S.from_list(eb74))
+  |> GDF.put("eb79", S.from_list(eb79))
+
+GeoFrame.Kino.deck(counties,
+  color: {"eb74", :viridis},
+  opacity: 0.85,
+  tooltip: ["NAME", "BIR74", "SID74", "rate74", "eb74"]
+)
+```
+
+```elixir
+counties
+|> GDF.data()
+|> DF.select(["NAME", "BIR74", "SID74", "rate74", "eb74"])
+|> DF.sort_by(asc: eb74)
+|> DF.head(10)
+```
+
+El fondo de la clasificación suavizada lo forman ahora condados **grandes** con tasas bajas
+(Forsyth, Rowan, Wake, Catawba): con miles de nacimientos, una tasa baja es creíble. Los condados
+diminutos con cero muertes subieron hacia el centro, donde los sitúa la evidencia.
+
+## 3. ¿Hay un patrón geográfico?
+
+Dos condados son vecinos cuando sus fronteras se tocan (contigüidad tipo reina). La contigüidad no
+mide distancias, así que aquí las coordenadas en grados no son un problema.
+`Spatex.ESDA.moran_rate/4` es la I de Moran sobre las tasas Empirical Bayes: positiva y
+significativa quiere decir que los condados con tasas altas están junto a condados con tasas
+altas.
+
+```elixir
+graph = Spatex.GeoFrame.graph(counties, :queen)
+
+moran74 =
+  Spatex.ESDA.moran_rate(
+    GDF.pull(counties, "SID74"),
+    GDF.pull(counties, "BIR74"),
+    graph,
+    permutations: 9999,
+    seed: 1974
+  )
+
+%{i: moran74.i, esperada_si_aleatorio: moran74.ei, p_sim: moran74.p_sim}
+```
+
+La I de Moran queda claramente por encima de lo esperado si el reparto fuera aleatorio, y el
+p-valor por permutaciones es pequeño: el SIDS **no** se reparte por igual. Un programa regional
+tiene sentido. La siguiente pregunta es dónde.
+
+## 4. Dónde: clusters locales
+
+La I de Moran local (LISA) hace la misma prueba para cada condado frente a sus propios vecinos.
+Sirven dos niveles de evidencia, y el programa necesita los dos:
+
+* el mapa **exploratorio** habitual, cada condado probado al 5%. Con 100 pruebas salen unos cinco
+  condados significativos solo por azar, así que este mapa propone candidatos;
+* la **tasa de falsos descubrimientos** (FDR, `Spatex.ESDA.fdr/2`), que baja el umbral para que,
+  como mucho, el 5% de los condados señalados sean falsas alarmas. Esta es la lista que se puede
+  defender en una reunión de presupuesto.
+
+```elixir
+lisa74 = Spatex.ESDA.moran_local(eb74, graph, permutations: 9999, seed: 1974)
+cut74 = Spatex.ESDA.fdr(lisa74.p_sim, 0.05)
+
+counties =
+  counties
+  |> Spatex.GeoFrame.put_results(lisa74, prefix: "lisa74_")
+  |> GDF.put("fdr74", S.less(S.from_list(lisa74.p_sim), cut74))
+
+GeoFrame.Kino.deck(counties,
+  color: {"lisa74_cluster", :categorical},
+  opacity: 0.85,
+  tooltip: ["NAME", "eb74", "lisa74_cluster", "lisa74_p_sim", "fdr74"]
+)
+```
+
+```elixir
+counties
+|> GDF.data()
+|> DF.filter(lisa74_cluster == "High-High")
+|> DF.select(["NAME", "BIR74", "SID74", "rate74", "lisa74_p_sim", "fdr74"])
+|> DF.sort_by(asc: lisa74_p_sim)
+```
+
+Los condados **High-High** (alto-alto) tienen una tasa alta *y* vecinos con tasas altas: el
+núcleo de un cluster, donde un programa llega a toda una zona a la vez. En 1974-78 forman dos
+grupos: el noreste (Bertie, Northampton, Halifax, Hertford, Warren) y el sureste (Robeson,
+Columbus). Pocos sobreviven a la FDR (`fdr74`), algo normal con 100 condados y cinco años de
+datos: el mapa es una pista sólida, no una prueba.
+
+## 5. ¿Habría aguantado el plan?
+
+Un patrón encontrado en una ventana de cinco años podría ser ruido. El segundo periodo (1979-84)
+son datos que el plan nunca vio. Repetimos el análisis sobre ellos y comparamos.
+
+```elixir
+lisa79 = Spatex.ESDA.moran_local(eb79, graph, permutations: 9999, seed: 1979)
+
+counties = Spatex.GeoFrame.put_results(counties, lisa79, prefix: "lisa79_")
+
+moran79 =
+  Spatex.ESDA.moran_rate(
+    GDF.pull(counties, "SID79"),
+    GDF.pull(counties, "BIR79"),
+    graph,
+    permutations: 9999,
+    seed: 1979
+  )
+
+%{moran_i_1974: moran74.i, moran_i_1979: moran79.i, p_sim_1979: moran79.p_sim}
+```
+
+La agrupación a escala de estado sigue presente en 1979-84, más débil pero significativa. ¿Qué
+clusters se mantuvieron?
+
+```elixir
+counties
+|> GDF.data()
+|> DF.filter(lisa74_cluster == "High-High" or lisa79_cluster == "High-High")
+|> DF.select(["NAME", "lisa74_cluster", "lisa79_cluster", "rate74", "rate79"])
+|> DF.sort_by(asc: lisa79_cluster)
+```
+
+El sureste se mantuvo: Robeson es núcleo High-High en los dos periodos, y sus vecinos Hoke y
+Richmond se le unen en 1979-84 (Cleveland, en el oeste, aparece por primera vez). El grupo del
+noreste se desvaneció. Un departamento que lo hubiera puesto todo en el noreste habría
+perseguido un patrón que no duró; uno que empezara por el sureste habría acertado.
+
+Una evaluación sencilla del plan: la tasa conjunta de 1979-84 de los condados elegidos en 1974-78
+(High-High), frente al resto del estado.
+
+```elixir
+pooled = fn df ->
+  1000 * S.sum(DF.pull(df, "SID79")) / S.sum(DF.pull(df, "BIR79"))
+end
+
+data = GDF.data(counties)
+
+%{
+  elegidos_en_1974: data |> DF.filter(lisa74_cluster == "High-High") |> pooled.(),
+  resto_del_estado: data |> DF.filter(lisa74_cluster != "High-High") |> pooled.()
+}
+```
+
+Los condados elegidos con los datos antiguos seguían teniendo años después una tasa claramente
+mayor, así que incluso el plan en parte desvanecido apuntaba a un riesgo real.
+
+## 6. ¿Por qué ahí? Un primer factor explicativo
+
+El diseño del programa depende de quién está en riesgo. En estos datos, la proporción de
+nacimientos no blancos representa las grandes diferencias de pobreza y de acceso a la atención
+prenatal que había entonces en Carolina del Norte.
+
+Las tasas de sucesos raros tienen una varianza que crece con la tasa, y eso rompe el supuesto de
+varianza constante de los mínimos cuadrados. Cressie (1993) usó con estos datos la
+transformación de **Freeman-Tukey** `sqrt(1000) * (sqrt(d / b) + sqrt((d + 1) / b))` para
+estabilizarla; hacemos lo mismo y regresamos la tasa transformada de 1974-78 sobre la proporción
+de nacimientos no blancos, pidiendo a Spatex los diagnósticos espaciales de los residuos.
+
+```elixir
+freeman_tukey = fn deaths, births ->
+  root = &S.pow(&1, 0.5)
+  sum = S.add(root.(S.divide(deaths, births)), root.(S.divide(S.add(deaths, 1), births)))
+  S.multiply(sum, :math.sqrt(1000))
+end
+
+counties =
+  counties
+  |> GDF.put("ft74", freeman_tukey.(GDF.pull(counties, "SID74"), GDF.pull(counties, "BIR74")))
+  |> GDF.put(
+    "nw_share74",
+    S.multiply(S.divide(GDF.pull(counties, "NWBIR74"), GDF.pull(counties, "BIR74")), 100)
+  )
+
+w = Spatex.Graph.transform(graph, :r)
+y = GDF.pull(counties, "ft74")
+x = counties |> GDF.data() |> DF.select(["nw_share74"])
+
+ols = Spatex.Regression.ols(y, x, name_y: "ft_sids74", graph: w, spat_diag: true, moran: true)
+
+IO.puts(Spatex.Regression.summary(ols))
+```
+
+Dos cosas que leer en el resumen:
+
+* el coeficiente de `nw_share74` es positivo y muy significativo: los condados con más
+  nacimientos no blancos tenían tasas de SIDS más altas, así que el programa debería llegar
+  primero a esas familias;
+* la **I de Moran de los residuos** y las pruebas de **multiplicadores de Lagrange** no son
+  significativas. Con la proporción de nacimientos no blancos en el modelo, lo que queda ya no
+  está agrupado en el espacio: esta variable explica el patrón geográfico de la sección 3.
+
+```elixir
+%{
+  moran_residuos: ols.moran_res,
+  lm_error: ols.lm_error,
+  lm_lag: ols.lm_lag,
+  lm_error_robusto: ols.rlm_error,
+  lm_lag_robusto: ols.rlm_lag
+}
+```
+
+Ajustar aun así el modelo de error espacial lo confirma: `lam` (cuánto se mueven juntos los
+residuos de los vecinos) está cerca de cero y no es significativo, el coeficiente apenas cambia y
+el AIC es prácticamente el mismo. Aquí los diagnósticos dicen que basta el modelo simple; con
+otros datos, las mismas pruebas señalarían un modelo espacial de error o de rezago.
+
+```elixir
+ml_error = Spatex.Regression.ml_error(y, x, w, name_y: "ft_sids74")
+
+%{
+  name_x: ml_error.name_x,
+  coeficientes: ml_error.betas,
+  z_y_p: ml_error.z_stat,
+  aic_ml_error: ml_error.aic,
+  aic_ols: ols.aic
+}
+```
+
+Es un modelo ecológico: describe condados, no familias concretas. Ese es justo el nivel al que el
+programa reparte sus recursos, pero no dice por qué un bebé concreto está en riesgo.
+
+## 7. Distritos del programa
+
+El departamento quiere informar del avance por distrito, y la tasa de un distrito solo es
+estable si el distrito tiene suficientes nacimientos. `Spatex.Region.max_p/3` encuentra el
+**mayor número de distritos contiguos** en el que cada distrito alcanza un total mínimo, aquí
+30.000 nacidos vivos en los dos periodos (unos 3.000 al año), manteniendo juntos los condados con
+tasas Empirical Bayes parecidas.
+
+```elixir
+births = S.add(GDF.pull(counties, "BIR74"), GDF.pull(counties, "BIR79"))
+counties = GDF.put(counties, "births", births)
+
+districts =
+  Spatex.Region.max_p([eb74, eb79], graph,
+    threshold_variable: births,
+    threshold: 30_000,
+    seed: 2024
+  )
+
+counties = Spatex.GeoFrame.put_results(counties, districts, prefix: "district_")
+
+%{distritos: districts.p, disimilitud_dentro_de_distritos: districts.objective}
+```
+
+`GDF.dissolve/2` une los condados de cada distrito en un solo polígono y suma sus nacimientos y
+muertes, lo que da una tasa estable por distrito.
+
+```elixir
+district_map =
+  counties
+  |> GDF.select(["district_labels", "BIR74", "SID74", "BIR79", "SID79", "births"])
+  |> GDF.dissolve(by: "district_labels", aggfunc: :sum)
+
+district_map =
+  district_map
+  |> GDF.put("rate74", rate.(GDF.pull(district_map, "SID74"), GDF.pull(district_map, "BIR74")))
+  |> GDF.put("rate79", rate.(GDF.pull(district_map, "SID79"), GDF.pull(district_map, "BIR79")))
+
+GeoFrame.Kino.deck(district_map,
+  color: {"rate74", :viridis},
+  opacity: 0.85,
+  tooltip: ["district_labels", "births", "rate74", "rate79"]
+)
+```
+
+```elixir
+district_map
+|> GDF.data()
+|> DF.sort_by(desc: rate74)
+```
+
+Todos los distritos tienen al menos 30.000 nacimientos, así que un cambio de una muerte por cada
+1.000 nacimientos es un cambio real, no ruido.
+
+La primera fase del programa va a los condados que son High-High en el periodo más reciente, el
+núcleo del cluster que se mantuvo. Sus distritos son donde empieza el programa y donde se medirá
+su efecto:
+
+```elixir
+priority =
+  counties
+  |> GDF.data()
+  |> DF.filter(lisa79_cluster == "High-High")
+  |> DF.select(["NAME", "FIPS", "district_labels", "BIR79", "SID79", "rate79", "lisa74_cluster"])
+
+district_rates =
+  district_map
+  |> GDF.data()
+  |> DF.select(["district_labels", "rate79"])
+  |> DF.rename(rate79: "district_rate79")
+
+DF.join(priority, district_rates, on: "district_labels")
+```
+
+Robeson y Richmond caen en el distrito con la tasa de 1979-84 más alta del estado, así que la
+vista por distritos y los clusters de condados coinciden en dónde empezar.
+
+## 8. Entregables
+
+El análisis vive en un solo frame: geometría, datos originales, tasas suavizadas, etiquetas de
+cluster de los dos periodos y el distrito de cada condado. GeoFrame lo escribe en un GeoPackage
+que se abre en QGIS o ArcGIS, y la lista de prioridades en CSV para el equipo del programa.
+
+```elixir
+out_dir = Path.join(System.tmp_dir!(), "caso_sids")
+File.mkdir_p!(out_dir)
+
+counties_path = Path.join(out_dir, "condados.gpkg")
+districts_path = Path.join(out_dir, "distritos.gpkg")
+priority_path = Path.join(out_dir, "condados_prioritarios.csv")
+
+:ok = GeoFrame.write_file(counties, counties_path)
+:ok = GeoFrame.write_file(district_map, districts_path)
+:ok = DF.to_csv(priority, priority_path)
+
+out_dir |> File.ls!() |> Enum.sort()
+```
+
+## Lo que hemos visto
+
+* **GeoFrame** hizo el trabajo SIG: leer un Shapefile, el CRS, los mapas, unir condados en
+  distritos y escribir GeoPackage.
+* **Spatex** hizo la estadística espacial: vecinos, tasas Empirical Bayes, Moran global y local
+  con tasa de falsos descubrimientos, regresión con diagnósticos espaciales y un modelo de error
+  espacial, y regionalización con una restricción de población.
+* Los dos trabajan sobre el mismo `GeoDataFrame`, así que cada resultado es una columna junto a
+  los datos de los que sale, y todo el análisis es reproducible: cada paso aleatorio lleva un
+  `seed`.
+
+Los mismos pasos sirven para cualquier pregunta del tipo «recuentos en áreas»: incidencia de una
+enfermedad, delitos por habitante, siniestros por póliza, impagos por préstamo, ventas por hogar.

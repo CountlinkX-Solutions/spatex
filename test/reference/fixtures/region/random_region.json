@@ -1,0 +1,319 @@
+{
+ "spopt": "0.8.0",
+ "numpy": "2.5.4",
+ "seed": 20260514,
+ "lattice": {
+  "rows": 6,
+  "cols": 6
+ },
+ "cases": {
+  "free_n20": {
+   "spec": {
+    "n": 20,
+    "contiguity": false,
+    "maxiter": 1000
+   },
+   "runs": 6000,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 10.5465,
+     "sd": 5.238455050733288,
+     "runs": 6000
+    },
+    "first_size": {
+     "mean": 2.6891666666666665,
+     "sd": 3.0150839281968973,
+     "runs": 6000
+    },
+    "last_size": {
+     "mean": 3.675666666666667,
+     "sd": 3.0578913767770732,
+     "runs": 6000
+    },
+    "max_size": {
+     "mean": 5.4525,
+     "sd": 3.7542544072504014,
+     "runs": 6000
+    },
+    "min_size": {
+     "mean": 1.4358333333333333,
+     "sd": 1.322563483511047,
+     "runs": 6000
+    },
+    "compactness": {
+     "mean": 4.4834499999999995,
+     "sd": 5.250074124291176,
+     "runs": 6000
+    }
+   }
+  },
+  "regions4_n20": {
+   "spec": {
+    "n": 20,
+    "num_regions": 4,
+    "contiguity": false,
+    "maxiter": 1000
+   },
+   "runs": 6000,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 4.0,
+     "sd": 0.0,
+     "runs": 6000
+    },
+    "first_size": {
+     "mean": 4.7251666666666665,
+     "sd": 3.2968841168142644,
+     "runs": 6000
+    },
+    "last_size": {
+     "mean": 5.765833333333333,
+     "sd": 3.3096563179650635,
+     "runs": 6000
+    },
+    "max_size": {
+     "mean": 9.660166666666667,
+     "sd": 2.2570324923449387,
+     "runs": 6000
+    },
+    "min_size": {
+     "mean": 1.7953333333333332,
+     "sd": 0.8609501116429522,
+     "runs": 6000
+    },
+    "compactness": {
+     "mean": 9.983716666666668,
+     "sd": 2.5999871490550546,
+     "runs": 6000
+    }
+   }
+  },
+  "cardinality_n20": {
+   "spec": {
+    "n": 20,
+    "cardinality": [
+     8,
+     7,
+     5
+    ],
+    "contiguity": false,
+    "maxiter": 1000
+   },
+   "runs": 2000,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 3.0,
+     "sd": 0.0,
+     "runs": 2000
+    },
+    "first_size": {
+     "mean": 8.0,
+     "sd": 0.0,
+     "runs": 2000
+    },
+    "last_size": {
+     "mean": 5.0,
+     "sd": 0.0,
+     "runs": 2000
+    },
+    "max_size": {
+     "mean": 8.0,
+     "sd": 0.0,
+     "runs": 2000
+    },
+    "min_size": {
+     "mean": 5.0,
+     "sd": 0.0,
+     "runs": 2000
+    },
+    "compactness": {
+     "mean": 9.464975,
+     "sd": 0.48095494404788275,
+     "runs": 2000
+    }
+   }
+  },
+  "contig_regions4": {
+   "spec": {
+    "n": 36,
+    "num_regions": 4,
+    "contiguity": true,
+    "maxiter": 200
+   },
+   "runs": 1500,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 4.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "first_size": {
+     "mean": 17.72,
+     "sd": 4.148542748720161,
+     "runs": 1500
+    },
+    "last_size": {
+     "mean": 4.962666666666666,
+     "sd": 2.7514214087875946,
+     "runs": 1500
+    },
+    "max_size": {
+     "mean": 17.72,
+     "sd": 4.148542748720161,
+     "runs": 1500
+    },
+    "min_size": {
+     "mean": 2.766,
+     "sd": 1.5818487592048738,
+     "runs": 1500
+    },
+    "compactness": {
+     "mean": 19.90238888888889,
+     "sd": 7.26599727415899,
+     "runs": 1500
+    }
+   }
+  },
+  "contig_cardinality": {
+   "spec": {
+    "n": 36,
+    "cardinality": [
+     18,
+     9,
+     6,
+     3
+    ],
+    "contiguity": true,
+    "maxiter": 200
+   },
+   "runs": 1500,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 4.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "first_size": {
+     "mean": 18.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "last_size": {
+     "mean": 4.414,
+     "sd": 1.6286105268496343,
+     "runs": 1500
+    },
+    "max_size": {
+     "mean": 18.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "min_size": {
+     "mean": 3.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "compactness": {
+     "mean": 17.856907407407405,
+     "sd": 1.41988948864963,
+     "runs": 1500
+    }
+   }
+  },
+  "contig_cardinality_compact": {
+   "spec": {
+    "n": 36,
+    "cardinality": [
+     18,
+     9,
+     6,
+     3
+    ],
+    "contiguity": true,
+    "maxiter": 200,
+    "compact": true
+   },
+   "runs": 1500,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 4.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "first_size": {
+     "mean": 18.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "last_size": {
+     "mean": 3.824,
+     "sd": 1.4388899435026323,
+     "runs": 1500
+    },
+    "max_size": {
+     "mean": 18.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "min_size": {
+     "mean": 3.0,
+     "sd": 0.0,
+     "runs": 1500
+    },
+    "compactness": {
+     "mean": 16.97448148148148,
+     "sd": 1.28374931154439,
+     "runs": 1500
+    }
+   }
+  },
+  "contig_free": {
+   "spec": {
+    "n": 36,
+    "contiguity": true,
+    "maxiter": 20,
+    "max_swaps": 2000
+   },
+   "runs": 1500,
+   "feasible_share": 1.0,
+   "stats": {
+    "n_regions": {
+     "mean": 18.617333333333335,
+     "sd": 9.856825260956942,
+     "runs": 1500
+    },
+    "first_size": {
+     "mean": 7.266666666666667,
+     "sd": 6.03355821817195,
+     "runs": 1500
+    },
+    "last_size": {
+     "mean": 1.8246666666666667,
+     "sd": 2.330424598242622,
+     "runs": 1500
+    },
+    "max_size": {
+     "mean": 7.266666666666667,
+     "sd": 6.03355821817195,
+     "runs": 1500
+    },
+    "min_size": {
+     "mean": 1.4573333333333334,
+     "sd": 1.9224923597952743,
+     "runs": 1500
+    },
+    "compactness": {
+     "mean": 5.029796296296296,
+     "sd": 9.274371052556452,
+     "runs": 1500
+    }
+   }
+  }
+ }
+}

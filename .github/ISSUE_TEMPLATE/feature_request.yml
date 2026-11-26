@@ -1,0 +1,27 @@
+name: Feature request
+description: A PySAL function to port, or an improvement to an existing function.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What you want to do and why the current API does not cover it.
+    validations:
+      required: true
+  - type: input
+    id: pysal
+    attributes:
+      label: PySAL counterpart
+      description: Package, class or function and version, if any.
+      placeholder: "esda.Moran_Local (esda 2.10.0)"
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The function, options or result fields you have in mind.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Workarounds you use today or other approaches you considered.
